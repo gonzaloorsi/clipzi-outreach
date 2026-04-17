@@ -1,0 +1,14 @@
+{
+  "name": "clipzi-outreach",
+  "version": "1.0.0",
+  "description": "YouTube channel outreach tool for Clipzi - find channels, extract emails, send personalized outreach",
+  "type": "module",
+  "scripts": {
+    "fetch": "node fetch-channels.mjs",
+    "refine": "node refine-channels.mjs",
+    "filter": "node filter-local.mjs",
+    "build": "node build-final.mjs",
+    "fetch:batch2": "node fetch_batch2.mjs",
+    "send": "node send-emails.mjs"
+  }
+}
