@@ -1,0 +1,304 @@
+country,name,web,emails,status
+chile,"Porta",https://porta.cl,"usuario@dominio.com",200
+chile,"McCann Santiago",https://mccann.cl,"",200
+chile,"BBDO Chile",https://bbdo.cl,"",error
+chile,"Ogilvy Chile",https://ogilvy.cl,"",error
+chile,"DDB Chile",https://ddb.cl,"",error
+chile,"Grey Chile",https://grey.cl,"ventas@blobel.cl;VENTAS@BLOBEL.CL;micuenta@midominio.cl;paulblobel@gmail.com;paul@blobel.cl;phbh17@gmail.com;gmella@blobel.cl;mella.h.gustavo@gmail.com;prueba12@gmail.com;prueba13@gmail.com;prueba14@gmail.com;prueba15@gmail.com;lonomaster@gmail.com;czamos@gmail.com;carlos.zamorano@connectic.cl;ventasweb@blobel.cl",200
+chile,"Publicis Chile",https://publicis.cl,"",404
+chile,"Wunderman Thompson Chile",https://wundermanthompson.cl,"",error
+chile,"Havas Chile",https://havas.cl,"",200
+chile,"Leo Burnett Chile",https://leoburnett.cl,"",404
+chile,"JWT Chile",https://jwt.cl,"",error
+chile,"Lowe Chile",https://lowessp.cl,"",error
+chile,"Prolam Y&R",https://prolam.cl,"",error
+chile,"Inbrax",https://inbrax.com,"",200
+chile,"Jelly",https://jelly.cl,"contacto@jelly.cl",200
+chile,"Xtreme Marketing",https://xtrememarketing.cl,"",error
+chile,"IDA Chile",https://ida.cl,"tuemail@mail.com",200
+chile,"Webketing",https://webketing.cl,"",error
+chile,"Factor Digital",https://factordigital.cl,"usuario@dominio.com",200
+chile,"Staff Creativa Chile",https://staffcreativa.cl,"",error
+chile,"Marketmedios",https://marketmedios.cl,"",error
+chile,"Rompecabeza Digital",https://rompecabeza.cl,"",200
+chile,"Clever Digital",https://cleverdigital.cl,"contacto@cleverdigital.cl",200
+chile,"Tu Hosting Chile",https://tuhosting.cl,"",error
+chile,"Creato",https://creato.cl,"contacto@creato.cl",200
+chile,"Agencia Rut",https://agenciarut.cl,"",error
+chile,"Notable",https://notable.cl,"",200
+chile,"Venditori",https://venditori.cl,"",error
+chile,"Mentalidad Web",https://mentalidadweb.com,"contacto@mentalidadweb.com",200
+chile,"Forma Comunicaciones",https://formacomunicaciones.cl,"",error
+chile,"I3net",https://i3net.cl,"",error
+chile,"La Cocina Marketing",https://lacocinamarketing.cl,"",error
+chile,"Inbound Chile",https://inbound.cl,"",200
+chile,"Digital Heads",https://digitalheads.cl,"contacto@digitalheads.cl",200
+chile,"Cebra",https://cebra.cl,"",403
+chile,"Niu Marketing",https://niumarketing.cl,"",error
+chile,"ROI Agency",https://roiagency.cl,"",error
+chile,"Attach",https://attach.cl,"",error
+chile,"BIG Digital",https://bigdigital.cl,"",error
+chile,"MR Agencia",https://mragencia.cl,"",error
+chile,"Flock",https://flock.cl,"",error
+chile,"Digital Bots",https://digitalbots.cl,"karen.escobar@digitalbots.cl",200
+chile,"Simplicity",https://simplicity.cl,"hola@wearesimplicity.com;hello@wearesimplicity.com",200
+chile,"AB Comunicaciones Chile",https://abcomunicaciones.cl,"",error
+chile,"Global Interactive",https://globalinteractive.cl,"",error
+chile,"Adity",https://adity.cl,"",403
+chile,"NetMinds",https://netminds.cl,"",error
+chile,"MATCH Comunicaciones",https://matchcomunicaciones.cl,"",error
+chile,"Grupo Lucky",https://grupolucky.cl,"",error
+chile,"Digitalízame",https://digitalizame.cl,"",403
+chile,"Marketgreen",https://marketgreen.cl,"privas@marketgreen.cl;example@mysite.com",200
+chile,"Agencia Klare",https://klare.cl,"",error
+chile,"Agencia Swell",https://agenciaswell.cl,"wweeiihhuuaanngg@gmail.com",200
+chile,"Brand Lab",https://brandlab.cl,"",error
+chile,"Mktmarketingdigital",https://mktmarketingdigital.cl,"",error
+chile,"Win Win Marketing",https://winwinmarketing.cl,"",error
+chile,"Next_U Chile",https://next-u.cl,"",error
+chile,"Hic & Nunc",https://hicetnunc.cl,"",error
+chile,"Publimark",https://publimark.cl,"",403
+chile,"Socialand",https://socialand.cl,"",error
+chile,"Soho Agency",https://sohoagency.cl,"",error
+chile,"Digital Republic",https://digitalrepublic.cl,"",error
+chile,"Agencia Siete",https://agenciasiete.cl,"info@agenciasiete.cl",200
+chile,"Humana Comunicaciones",https://humana.cl,"hola@humana.cl",200
+chile,"Factory Chile",https://factory.cl,"",200
+chile,"Digital Marketing Chile",https://digitalmarketingchile.cl,"",error
+chile,"Appsol",https://appsol.cl,"",error
+chile,"Masdigital",https://masdigital.cl,"",error
+chile,"Dobuss Chile",https://dobuss.cl,"",error
+chile,"Pixel Factory",https://pixelfactory.cl,"",error
+chile,"Agencia Moov",https://agenciamoov.cl,"",error
+chile,"Branding Chile",https://brandingchile.cl,"",error
+chile,"Idea Works",https://ideaworks.cl,"",error
+chile,"SomosAgencia",https://somosagencia.cl,"info@somosagencia.cl;tu@email.com",200
+chile,"1up Digital",https://1updigital.cl,"",error
+chile,"Agencia Fusión",https://agenciafusion.cl,"",error
+chile,"Web Growth",https://webgrowth.cl,"",error
+chile,"Magnolia",https://magnolia.cl,"",error
+chile,"Digital Partners Chile",https://digitalpartners.cl,"",error
+chile,"Agencia Ping",https://agenciaping.cl,"",error
+chile,"M22 Marketing",https://m22marketing.cl,"",error
+chile,"Red Design",https://reddesign.cl,"hola@reddesign.cl",200
+chile,"Impact Media Chile",https://impactmedia.cl,"contacto@impactmedia.cl",200
+chile,"Go Digital Chile",https://godigital.cl,"info@godigital.cl",200
+chile,"Smart Digital",https://smartdigital.cl,"",200
+chile,"Agency One Chile",https://agencyone.cl,"",error
+chile,"Social Boost Chile",https://socialboost.cl,"",error
+chile,"Media Source Chile",https://mediasource.cl,"",error
+chile,"Lab Digital",https://labdigital.cl,"",200
+chile,"Agencia Wow",https://agenciawow.cl,"",error
+chile,"Rocket Digital Chile",https://rocketdigital.cl,"",error
+chile,"Disruptiva",https://disruptiva.cl,"",403
+chile,"Nube Digital Chile",https://nubedigital.cl,"nubedigitalchile@gmail.com",200
+chile,"Medios Digitales Chile",https://mediosdigitales.cl,"contacto@mediosdigitales.cl",200
+chile,"Agencia Delta Chile",https://agenciadelta.cl,"",error
+chile,"Fly Media Chile",https://flymedia.cl,"nosotrosContacto@flymedia.cl;contacto@flymedia.cl",200
+chile,"Target Chile",https://target.cl,"email@dominio.com;ventas@target.cl",200
+chile,"Nexo Digital Chile",https://nexodigital.cl,"agencia@nexodigital.cl",200
+chile,"360 Digital Chile",https://360digital.cl,"",error
+chile,"Performly Chile",https://performly.cl,"",error
+chile,"Shift Marketing Chile",https://shiftmarketing.cl,"",error
+mexico,"Ogilvy Mexico",https://ogilvy.com.mx,"",200
+mexico,"McCann Mexico",https://mccann.com.mx,"",200
+mexico,"BBDO Mexico",https://bbdo.com.mx,"quierotrabajaren@bbdomexico.com",200
+mexico,"DDB Mexico",https://ddb.com.mx,"",error
+mexico,"Publicis Mexico",https://publicis.com.mx,"",error
+mexico,"Havas Mexico",https://havas.com.mx,"",error
+mexico,"Leo Burnett Mexico",https://leoburnett.com.mx,"",error
+mexico,"Grey Mexico",https://grey.com.mx,"",error
+mexico,"Wunderman Thompson Mexico",https://wundermanthompson.com.mx,"",error
+mexico,"JWT Mexico",https://jwt.com.mx,"bongdaso.team@gmail.com",200
+mexico,"Ganem Group",https://ganem.com.mx,"",403
+mexico,"Archer Troy",https://archertroy.com,"",200
+mexico,"Anónimo",https://anonimo.com.mx,"anonimoo@gmail.com",200
+mexico,"Bombay",https://bombay.mx,"",error
+mexico,"Sparkling",https://sparkling.com.mx,"",200
+mexico,"Elogia Mexico",https://elogia.net,"",200
+mexico,"Cliento",https://clfrankiento.mx,"",error
+mexico,"Media Source",https://mediasource.mx,"hola@m-s.co",200
+mexico,"Prospect Factory",https://prospectfactory.com.mx,"contacto@prospectfactory.com.mx",200
+mexico,"Smartup Mexico",https://smartup.mx,"",error
+mexico,"Blank",https://blank.com.mx,"",200
+mexico,"Masclicks",https://masclicks.com.mx,"",error
+mexico,"Crea Tu Web",https://creatuweb.mx,"",error
+mexico,"Mijo Brands",https://mijobrands.com,"",error
+mexico,"Zitro Digital",https://zitrodigital.com,"",error
+mexico,"Marca Lima",https://marcalima.com,"",error
+mexico,"Digital Friks",https://digitalfriks.com,"hablacon@digitalfriks.com",200
+mexico,"Rocket Marketing Mexico",https://rocketmarketing.mx,"",200
+mexico,"BMG Media",https://bmgmedia.com.mx,"",error
+mexico,"Netcommerce",https://netcommerce.mx,"info@netcommerce.mx",200
+mexico,"Quiroga Agency",https://quirogaagency.com,"",error
+mexico,"Gou Mx",https://gou.mx,"info@gou.mx",200
+mexico,"Brand Industry",https://brandindustry.mx,"",403
+mexico,"Digital Business",https://digitalbusiness.mx,"digitalbsuport@gmail.com;ventas@digitalbusiness.mx",200
+mexico,"Merca2.0 Agency",https://merca20.com,"",200
+mexico,"Serendipia",https://serendipia.digital,"",200
+mexico,"Nobox Agency",https://noboxagency.com,"",error
+mexico,"WebSeo",https://webseo.mx,"",error
+mexico,"Traffic Agency",https://trafficagency.mx,"",error
+mexico,"Agencia de Marketing Boom",https://agenciaboom.mx,"",error
+mexico,"Digital Valley",https://digitalvalley.mx,"",error
+mexico,"Kapital Creative",https://kapitalcreative.com,"",error
+mexico,"SEM Mexico",https://semmexico.com,"",200
+mexico,"Posicionamiento Web Mexico",https://posicionamientoweb.mx,"",error
+mexico,"Marketeros Latam Mexico",https://marketeroslatam.com,"",200
+mexico,"InboundCycle Mexico",https://inboundcycle.com/mexico,"",error
+mexico,"Interius",https://interius.com.mx,"marketing@interius.com.mx",200
+mexico,"Zebra Advertising",https://zebraadvertising.com.mx,"",error
+mexico,"Crecimiento Digital",https://crecimientodigital.mx,"",error
+mexico,"Trece Bits Mexico",https://trecebits.mx,"",error
+mexico,"Impact Hub Mexico",https://mexico.impacthub.net,"",error
+mexico,"Glow Marketing",https://glowmarketing.mx,"",error
+mexico,"Funky Marketing Mexico",https://funkymarketing.mx,"",error
+mexico,"Inbound Emotion Mexico",https://inboundemotion.mx,"",error
+mexico,"Galería de Creativos",https://galeriadecretivos.com,"",error
+mexico,"Clickmedia",https://clickmedia.mx,"",error
+mexico,"Nativa Global",https://nativaglobal.com,"",200
+mexico,"Punto Rojo Media",https://puntorojomedia.com,"",error
+mexico,"Atlas Digital MX",https://atlasdigital.mx,"",error
+mexico,"Agencia Matrix",https://agenciamatrix.mx,"",error
+mexico,"Pixel Creativo MX",https://pixelcreativo.mx,"",error
+mexico,"Social Press MX",https://socialpress.mx,"hermann@socialpress.mx",200
+mexico,"Coco Marketing",https://cocomarketing.mx,"",error
+mexico,"Fuel Digital",https://fueldigital.mx,"",error
+mexico,"Green Marketing Mexico",https://greenmarketing.mx,"",error
+mexico,"Agencia Naranja",https://agencianaranja.mx,"",error
+mexico,"Fast Brand Mexico",https://fastbrand.mx,"",200
+mexico,"Mr Marketing MX",https://mrmarketing.mx,"contacto@mrmarketing.mx",200
+mexico,"Next Level MX",https://nextlevel.mx,"",error
+mexico,"Tribal Mexico",https://tribal.com.mx,"",200
+mexico,"Moove Digital MX",https://moovedigital.mx,"",error
+mexico,"Linio Marketing",https://liniomarketing.mx,"",error
+mexico,"Studio 57",https://studio57.mx,"",error
+mexico,"Red Creativa Mexico",https://redcreativa.mx,"",200
+mexico,"Prime Marketing MX",https://primemarketing.mx,"",error
+mexico,"Agencia Impulsa",https://agenciaimpulsa.mx,"",error
+mexico,"Scale Digital MX",https://scaledigital.mx,"",error
+mexico,"Mars Digital Mexico",https://marsdigital.mx,"",error
+mexico,"Bloom Digital MX",https://bloomdigital.mx,"",error
+mexico,"Wave Marketing MX",https://wavemarketing.mx,"",error
+mexico,"Fire Media Mexico",https://firemedia.mx,"",error
+mexico,"Nova Advertising MX",https://novaadvertising.mx,"",error
+mexico,"Apex Marketing MX",https://apexmarketing.mx,"",error
+mexico,"Core Digital Mexico",https://coredigital.mx,"",error
+mexico,"Innova Marketing MX",https://innovamarketing.mx,"",error
+mexico,"Media Lab Mexico",https://medialab.mx,"",200
+mexico,"Fusion Agencia MX",https://fusionagencia.mx,"",error
+mexico,"Zenith Mexico",https://zenithmedia.com.mx,"",error
+mexico,"Mindshare Mexico",https://mindshareworld.com.mx,"",error
+mexico,"Starcom Mexico",https://starcom.com.mx,"",error
+mexico,"OMD Mexico",https://omd.com.mx,"",403
+mexico,"PHD Mexico",https://phdmedia.com.mx,"",error
+mexico,"Carat Mexico",https://carat.com.mx,"",error
+mexico,"Initiative Mexico",https://initiative.com.mx,"",error
+mexico,"Vizeum Mexico",https://vizeum.com.mx,"",error
+mexico,"iProspect Mexico",https://iprospect.com.mx,"",error
+mexico,"Performics Mexico",https://performics.com.mx,"",200
+mexico,"Possible Mexico",https://possible.com.mx,"",200
+mexico,"Mullen Lowe Mexico",https://mullenlowe.com.mx,"",error
+mexico,"FCB Mexico",https://fcb.com.mx,"",error
+mexico,"VMLY&R Mexico",https://vmlyr.com.mx,"",error
+spain,"Ogilvy España",https://ogilvy.es,"jordi.urbea@ogilvy.com;victoria.rodriguez@ogilvy.com",200
+spain,"McCann España",https://mccann.es,"",200
+spain,"BBDO España",https://bbdo.es,"luis.barragan@omc.com",200
+spain,"DDB España",https://ddb.es,"",200
+spain,"Publicis España",https://publicis.es,"",202
+spain,"Havas España",https://havas.es,"",error
+spain,"Leo Burnett España",https://leoburnett.es,"",202
+spain,"Grey España",https://grey.es,"",error
+spain,"Wunderman Thompson España",https://wundermanthompson.es,"",error
+spain,"JWT España",https://jwt.es,"info@jwt.es;INFO@JWT.ES",200
+spain,"Cyberclick",https://cyberclick.es,"info@cyberclick.es",200
+spain,"NeoAttack",https://neoattack.com,"mail@web.com;celia@thirdclientagent.com;irene@visualvdesign.com;alexmary528@gmail.com",200
+spain,"InboundCycle",https://inboundcycle.com,"",error
+spain,"Factorial Digital",https://factorialdigital.com,"",200
+spain,"Elogia",https://elogia.net,"",200
+spain,"T2O Media",https://t2omedia.com,"",error
+spain,"ROI UP Group",https://roiup.es,"",error
+spain,"Kanlli",https://kanlli.com,"info@kanlli.com",200
+spain,"Flat 101",https://flat101.es,"info@flat101.es;madrid@flat101.es;barcelona@flat101.es;zaragoza@flat101.es;latam@flat101.es",200
+spain,"SIDN Digital Thinking",https://sidn.es,"info@sidn.es",200
+spain,"Websa100",https://websa100.com,"",200
+spain,"Baud",https://baud.es,"baud@baud.es;mad@baud.es;bcn@baud.es;pamplona@baud.es",403
+spain,"Novicell",https://novicell.es,"hola@novicell.es",200
+spain,"Incógnito",https://agenciaincognito.com,"info@misitio.com;contacto@agenciaincognito.com",200
+spain,"Artefacto Digital",https://artefactodigital.com,"",200
+spain,"Secuoyas",https://secuoyas.com,"hiddenaddress@secuoyas.com",200
+spain,"Parnaso",https://pfrankarnaso.es,"",error
+spain,"Contrapunto BBDO",https://contrapuntobbdo.es,"luis.barragan@omc.com",200
+spain,"Sra. Rushmore",https://srarushmore.com,"",error
+spain,"Shackleton",https://shfrackleton.com,"",error
+spain,"El Ruso de Rocky",https://elrusoderocky.com,"hola@elrusoderocky.com",200
+spain,"PS21",https://ps21.es,"",error
+spain,"Kitchen",https://kitchen.es,"",200
+spain,"Apple Tree",https://appletree.es,"",error
+spain,"Llorente y Cuenca (LLYC)",https://llofrankrenteyfrankuenca.com,"",error
+spain,"Comunica +A",https://comunicamas.es,"",error
+spain,"Social Mood",https://40defiebre.com,"",error
+spain,"Roi Scroll",https://roiscroll.com,"hello@roiscroll.com",200
+spain,"MarketiNet",https://marketinet.com,"",200
+spain,"Human Level",https://humanlevel.com,"info@humanlevel.com",200
+spain,"Aula CM",https://aulacm.com,"",200
+spain,"Nivel de Calidad",https://niveldecalidad.com,"contacto@niveldecalidad.com;contacto@danydelvalle.com",error
+spain,"SocialBorn",https://socialborn.com,"",200
+spain,"Btodigital",https://bfranktodigital.com,"",error
+spain,"Summa Branding",https://summa.es,"chacal@herraizsoto.com;barcelona@summa.es;madrid@summa.es;lisboa@summa.pt;jcastillo@summa.es;talento@summa.es",200
+spain,"Morillas",https://morillas.com,"Peggy.Rau0@yahoo.com;name.surname@yourcompany.com;name.surname@gmail.com;hola@morillas.com;careers@morillas.com;info@morillas.com",200
+spain,"Manifiesto",https://manifiesto.biz,"",error
+spain,"Good Rebels",https://goodrebels.com,"",202
+spain,"Making Science",https://makingscience.com,"info@makingscience.com",200
+spain,"Internet Republica",https://internetrepublica.com,"hola@internetrepublica.com",200
+spain,"Digital Menta",https://digitalmenta.com,"",200
+spain,"Hiberus Digital",https://hiberus.com,"ejemplo@mail.com",200
+spain,"Lifting Group",https://liftinggroup.com,"",200
+spain,"The Cocktail",https://the-cocktail.com,"",200
+spain,"Wild Wild Web",https://wildwildweb.es,"info@wildwildweb.es",200
+spain,"Sr Burns",https://srburns.es,"",error
+spain,"Agencia B12",https://agenciab12.com,"",error
+spain,"Digital Group",https://digitalgroup.es,"",200
+spain,"BrainSINS",https://brainsins.com,"",200
+spain,"Findasense",https://findasense.com,"",200
+spain,"Multiplica",https://multiplica.com,"barcelona@multiplica.com;colombia@multiplica.com;buenosaires@multiplica.com;mexico@multiplica.com;lima@multiplica.com;madrid@multiplica.com;usa@multiplica.com;santiago@multiplica.com",200
+spain,"Territorio Creativo",https://territoriocreativo.es,"",202
+spain,"Hello Media Group",https://hellomedia.es,"",error
+spain,"iCrossing Spain",https://icrossing.es,"",error
+spain,"Dentsu Spain",https://dentsu.es,"",200
+spain,"Zenith Spain",https://zenithmedia.es,"info@zenithmedia.com",200
+spain,"Mindshare Spain",https://mindshareworld.es,"",error
+spain,"Starcom Spain",https://starcom.es,"info@starcom.es;info@starcomunicaciones.es",200
+spain,"OMD Spain",https://omd.es,"",error
+spain,"PHD Spain",https://phdmedia.es,"",error
+spain,"Carat Spain",https://carat.es,"",error
+spain,"Initiative Spain",https://initiative.es,"",error
+spain,"Alma Medialab",https://almamedialab.com,"",error
+spain,"Prisa Brand Solutions",https://prisabs.com,"",error
+spain,"Labelium España",https://labelium.es,"",error
+spain,"WAM Global",https://wfrankamglobal.com,"",error
+spain,"Bluecell",https://bluecell.es,"hola@bluecell.es;hola@bluecell.co;hola@bluecell.mx;hola@bluecellusa.com",200
+spain,"Ondho",https://ondho.com,"info@ondho.com",200
+spain,"Adglow",https://adglow.com,"",error
+spain,"Smartbrand",https://smartbrand.es,"",error
+spain,"El Publicista",https://elpublicista.es,"elpublicista@elpublicista.com",200
+spain,"Atrevia",https://atrevia.com,"",202
+spain,"Marco de Comunicación",https://marcodecomunicacion.com,"",error
+spain,"Torres y Carrera",https://torresycarrera.com,"torresycarrera@torresycarrera.com",200
+spain,"128 Comunicación",https://128comunicacion.com,"",error
+spain,"Trescom",https://tfrankresfrankcom.es,"",error
+spain,"Nothingad",https://nothingad.com,"",200
+spain,"Semrush Agency Spain",https://semrush.es,"",403
+spain,"Eskimoz España",https://eskimoz.es,"alexandre.courbin@eskimoz.fr",200
+spain,"Gacelaweb",https://gacelaweb.com,"info@gacelaweb.com",200
+spain,"K-Digital",https://kdigital.es,"kdigital@tepsis.com",200
+spain,"Jevnet",https://jevnet.com,"",403
+spain,"Webpositer",https://webpositer.com,"info@webpositer.com",200
+spain,"SEMrush Partner ES",https://semrushpartner.es,"",error
+spain,"Bring Media",https://bringmedia.es,"",error
+spain,"Digital Virgo España",https://digitalvirgo.es,"",200
+spain,"Tribal Spain",https://tribal.es,"",200
+spain,"MRM Spain",https://mrm.es,"info@mrm.es",200
+spain,"Rethink Marketing",https://rethinkmarketing.es,"info@rethinkmarketing.es",200
+spain,"All Around",https://allaround.es,"",error
+spain,"Sync Marketing Spain",https://syncmarketing.es,"contacto@syncmk.com",200

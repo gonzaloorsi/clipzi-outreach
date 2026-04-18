@@ -1,0 +1,359 @@
+[
+  {
+    "country": "chile",
+    "name": "Jelly",
+    "web": "jelly.cl",
+    "emails": "contacto@jelly.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Simplicity",
+    "web": "simplicity.cl",
+    "emails": "hola@wearesimplicity.com;hello@wearesimplicity.com",
+    "emailCount": 2
+  },
+  {
+    "country": "chile",
+    "name": "Clever Digital",
+    "web": "cleverdigital.cl",
+    "emails": "contacto@cleverdigital.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Digital Heads",
+    "web": "digitalheads.cl",
+    "emails": "contacto@digitalheads.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Creato",
+    "web": "creato.cl",
+    "emails": "contacto@creato.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Mentalidad Web",
+    "web": "mentalidadweb.com",
+    "emails": "contacto@mentalidadweb.com",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Impact Media Chile",
+    "web": "impactmedia.cl",
+    "emails": "contacto@impactmedia.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Siete",
+    "web": "agenciasiete.cl",
+    "emails": "info@agenciasiete.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Humana Comunicaciones",
+    "web": "humana.cl",
+    "emails": "hola@humana.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Marketgreen",
+    "web": "marketgreen.cl",
+    "emails": "privas@marketgreen.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Target Chile",
+    "web": "target.cl",
+    "emails": "ventas@target.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "mexico",
+    "name": "Media Source",
+    "web": "mediasource.mx",
+    "emails": "hola@m-s.co",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Grey Chile",
+    "web": "grey.cl",
+    "emails": "ventas@blobel.cl;VENTAS@BLOBEL.CL;paul@blobel.cl;gmella@blobel.cl;carlos.zamorano@connectic.cl;ventasweb@blobel.cl",
+    "emailCount": 6
+  },
+  {
+    "country": "mexico",
+    "name": "Netcommerce",
+    "web": "netcommerce.mx",
+    "emails": "info@netcommerce.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "mexico",
+    "name": "Interius",
+    "web": "interius.com.mx",
+    "emails": "marketing@interius.com.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Fly Media Chile",
+    "web": "flymedia.cl",
+    "emails": "nosotrosContacto@flymedia.cl;contacto@flymedia.cl",
+    "emailCount": 2
+  },
+  {
+    "country": "mexico",
+    "name": "Gou Mx",
+    "web": "gou.mx",
+    "emails": "info@gou.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "chile",
+    "name": "Medios Digitales Chile",
+    "web": "mediosdigitales.cl",
+    "emails": "contacto@mediosdigitales.cl",
+    "emailCount": 1
+  },
+  {
+    "country": "mexico",
+    "name": "Social Press MX",
+    "web": "socialpress.mx",
+    "emails": "hermann@socialpress.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "mexico",
+    "name": "Digital Business MX",
+    "web": "digitalbusiness.mx",
+    "emails": "ventas@digitalbusiness.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Cyberclick",
+    "web": "cyberclick.es",
+    "emails": "info@cyberclick.es",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Kanlli",
+    "web": "kanlli.com",
+    "emails": "info@kanlli.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Flat 101",
+    "web": "flat101.es",
+    "emails": "info@flat101.es;madrid@flat101.es;barcelona@flat101.es;zaragoza@flat101.es;latam@flat101.es",
+    "emailCount": 5
+  },
+  {
+    "country": "spain",
+    "name": "Making Science",
+    "web": "makingscience.com",
+    "emails": "info@makingscience.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Internet Republica",
+    "web": "internetrepublica.com",
+    "emails": "hola@internetrepublica.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "SIDN Digital Thinking",
+    "web": "sidn.es",
+    "emails": "info@sidn.es",
+    "emailCount": 1
+  },
+  {
+    "country": "mexico",
+    "name": "Prospect Factory",
+    "web": "prospectfactory.com.mx",
+    "emails": "contacto@prospectfactory.com.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Multiplica",
+    "web": "multiplica.com",
+    "emails": "barcelona@multiplica.com;colombia@multiplica.com;buenosaires@multiplica.com;mexico@multiplica.com;lima@multiplica.com;madrid@multiplica.com;usa@multiplica.com;santiago@multiplica.com",
+    "emailCount": 8
+  },
+  {
+    "country": "mexico",
+    "name": "Mr Marketing MX",
+    "web": "mrmarketing.mx",
+    "emails": "contacto@mrmarketing.mx",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Shackleton",
+    "web": "shackleton.com",
+    "emails": "info@shackleton.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "El Ruso de Rocky",
+    "web": "elrusoderocky.com",
+    "emails": "hola@elrusoderocky.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Human Level",
+    "web": "humanlevel.com",
+    "emails": "info@humanlevel.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Summa Branding",
+    "web": "summa.es",
+    "emails": "barcelona@summa.es;madrid@summa.es;lisboa@summa.pt;jcastillo@summa.es;talento@summa.es",
+    "emailCount": 5
+  },
+  {
+    "country": "spain",
+    "name": "Ondho",
+    "web": "ondho.com",
+    "emails": "info@ondho.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Morillas",
+    "web": "morillas.com",
+    "emails": "hola@morillas.com;careers@morillas.com;info@morillas.com",
+    "emailCount": 3
+  },
+  {
+    "country": "spain",
+    "name": "Ogilvy España",
+    "web": "ogilvy.es",
+    "emails": "jordi.urbea@ogilvy.com;victoria.rodriguez@ogilvy.com",
+    "emailCount": 2
+  },
+  {
+    "country": "spain",
+    "name": "Bluecell",
+    "web": "bluecell.es",
+    "emails": "hola@bluecell.es;hola@bluecell.co;hola@bluecell.mx;hola@bluecellusa.com",
+    "emailCount": 4
+  },
+  {
+    "country": "spain",
+    "name": "BBDO España",
+    "web": "bbdo.es",
+    "emails": "luis.barragan@omc.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Roi Scroll",
+    "web": "roiscroll.com",
+    "emails": "hello@roiscroll.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Novicell",
+    "web": "novicell.es",
+    "emails": "hola@novicell.es",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Wild Wild Web",
+    "web": "wildwildweb.es",
+    "emails": "info@wildwildweb.es",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Webpositer",
+    "web": "webpositer.com",
+    "emails": "info@webpositer.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Torres y Carrera",
+    "web": "torresycarrera.com",
+    "emails": "torresycarrera@torresycarrera.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Incógnito",
+    "web": "agenciaincognito.com",
+    "emails": "contacto@agenciaincognito.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "Starcom Spain",
+    "web": "starcom.es",
+    "emails": "info@starcom.es;info@starcomunicaciones.es",
+    "emailCount": 2
+  },
+  {
+    "country": "spain",
+    "name": "Gacelaweb",
+    "web": "gacelaweb.com",
+    "emails": "info@gacelaweb.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "El Publicista",
+    "web": "elpublicista.es",
+    "emails": "elpublicista@elpublicista.com",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "JWT España",
+    "web": "jwt.es",
+    "emails": "info@jwt.es;INFO@JWT.ES",
+    "emailCount": 2
+  },
+  {
+    "country": "spain",
+    "name": "Rethink Marketing",
+    "web": "rethinkmarketing.es",
+    "emails": "info@rethinkmarketing.es",
+    "emailCount": 1
+  },
+  {
+    "country": "spain",
+    "name": "K-Digital",
+    "web": "kdigital.es",
+    "emails": "kdigital@tepsis.com;info@tepsis.com",
+    "emailCount": 2
+  },
+  {
+    "country": "spain",
+    "name": "MRM Spain",
+    "web": "mrm.es",
+    "emails": "info@mrm.es",
+    "emailCount": 1
+  }
+]

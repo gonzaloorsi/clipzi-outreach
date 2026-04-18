@@ -1,0 +1,2123 @@
+[
+  {
+    "country": "chile",
+    "name": "Porta",
+    "web": "https://porta.cl",
+    "emails": "usuario@dominio.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "McCann Santiago",
+    "web": "https://mccann.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "BBDO Chile",
+    "web": "https://bbdo.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Ogilvy Chile",
+    "web": "https://ogilvy.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "DDB Chile",
+    "web": "https://ddb.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Grey Chile",
+    "web": "https://grey.cl",
+    "emails": "ventas@blobel.cl;VENTAS@BLOBEL.CL;micuenta@midominio.cl;paulblobel@gmail.com;paul@blobel.cl;phbh17@gmail.com;gmella@blobel.cl;mella.h.gustavo@gmail.com;prueba12@gmail.com;prueba13@gmail.com;prueba14@gmail.com;prueba15@gmail.com;lonomaster@gmail.com;czamos@gmail.com;carlos.zamorano@connectic.cl;ventasweb@blobel.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Publicis Chile",
+    "web": "https://publicis.cl",
+    "emails": "",
+    "status": 404
+  },
+  {
+    "country": "chile",
+    "name": "Wunderman Thompson Chile",
+    "web": "https://wundermanthompson.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Havas Chile",
+    "web": "https://havas.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Leo Burnett Chile",
+    "web": "https://leoburnett.cl",
+    "emails": "",
+    "status": 404
+  },
+  {
+    "country": "chile",
+    "name": "JWT Chile",
+    "web": "https://jwt.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Lowe Chile",
+    "web": "https://lowessp.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Prolam Y&R",
+    "web": "https://prolam.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Inbrax",
+    "web": "https://inbrax.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Jelly",
+    "web": "https://jelly.cl",
+    "emails": "contacto@jelly.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Xtreme Marketing",
+    "web": "https://xtrememarketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "IDA Chile",
+    "web": "https://ida.cl",
+    "emails": "tuemail@mail.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Webketing",
+    "web": "https://webketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Factor Digital",
+    "web": "https://factordigital.cl",
+    "emails": "usuario@dominio.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Staff Creativa Chile",
+    "web": "https://staffcreativa.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Marketmedios",
+    "web": "https://marketmedios.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Rompecabeza Digital",
+    "web": "https://rompecabeza.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Clever Digital",
+    "web": "https://cleverdigital.cl",
+    "emails": "contacto@cleverdigital.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Tu Hosting Chile",
+    "web": "https://tuhosting.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Creato",
+    "web": "https://creato.cl",
+    "emails": "contacto@creato.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Rut",
+    "web": "https://agenciarut.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Notable",
+    "web": "https://notable.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Venditori",
+    "web": "https://venditori.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Mentalidad Web",
+    "web": "https://mentalidadweb.com",
+    "emails": "contacto@mentalidadweb.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Forma Comunicaciones",
+    "web": "https://formacomunicaciones.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "I3net",
+    "web": "https://i3net.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "La Cocina Marketing",
+    "web": "https://lacocinamarketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Inbound Chile",
+    "web": "https://inbound.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Digital Heads",
+    "web": "https://digitalheads.cl",
+    "emails": "contacto@digitalheads.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Cebra",
+    "web": "https://cebra.cl",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "chile",
+    "name": "Niu Marketing",
+    "web": "https://niumarketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "ROI Agency",
+    "web": "https://roiagency.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Attach",
+    "web": "https://attach.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "BIG Digital",
+    "web": "https://bigdigital.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "MR Agencia",
+    "web": "https://mragencia.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Flock",
+    "web": "https://flock.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Digital Bots",
+    "web": "https://digitalbots.cl",
+    "emails": "karen.escobar@digitalbots.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Simplicity",
+    "web": "https://simplicity.cl",
+    "emails": "hola@wearesimplicity.com;hello@wearesimplicity.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "AB Comunicaciones Chile",
+    "web": "https://abcomunicaciones.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Global Interactive",
+    "web": "https://globalinteractive.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Adity",
+    "web": "https://adity.cl",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "chile",
+    "name": "NetMinds",
+    "web": "https://netminds.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "MATCH Comunicaciones",
+    "web": "https://matchcomunicaciones.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Grupo Lucky",
+    "web": "https://grupolucky.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Digitalízame",
+    "web": "https://digitalizame.cl",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "chile",
+    "name": "Marketgreen",
+    "web": "https://marketgreen.cl",
+    "emails": "privas@marketgreen.cl;example@mysite.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Klare",
+    "web": "https://klare.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Swell",
+    "web": "https://agenciaswell.cl",
+    "emails": "wweeiihhuuaanngg@gmail.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Brand Lab",
+    "web": "https://brandlab.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Mktmarketingdigital",
+    "web": "https://mktmarketingdigital.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Win Win Marketing",
+    "web": "https://winwinmarketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Next_U Chile",
+    "web": "https://next-u.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Hic & Nunc",
+    "web": "https://hicetnunc.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Publimark",
+    "web": "https://publimark.cl",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "chile",
+    "name": "Socialand",
+    "web": "https://socialand.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Soho Agency",
+    "web": "https://sohoagency.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Digital Republic",
+    "web": "https://digitalrepublic.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Siete",
+    "web": "https://agenciasiete.cl",
+    "emails": "info@agenciasiete.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Humana Comunicaciones",
+    "web": "https://humana.cl",
+    "emails": "hola@humana.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Factory Chile",
+    "web": "https://factory.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Digital Marketing Chile",
+    "web": "https://digitalmarketingchile.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Appsol",
+    "web": "https://appsol.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Masdigital",
+    "web": "https://masdigital.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Dobuss Chile",
+    "web": "https://dobuss.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Pixel Factory",
+    "web": "https://pixelfactory.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Moov",
+    "web": "https://agenciamoov.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Branding Chile",
+    "web": "https://brandingchile.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Idea Works",
+    "web": "https://ideaworks.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "SomosAgencia",
+    "web": "https://somosagencia.cl",
+    "emails": "info@somosagencia.cl;tu@email.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "1up Digital",
+    "web": "https://1updigital.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Fusión",
+    "web": "https://agenciafusion.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Web Growth",
+    "web": "https://webgrowth.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Magnolia",
+    "web": "https://magnolia.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Digital Partners Chile",
+    "web": "https://digitalpartners.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Ping",
+    "web": "https://agenciaping.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "M22 Marketing",
+    "web": "https://m22marketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Red Design",
+    "web": "https://reddesign.cl",
+    "emails": "hola@reddesign.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Impact Media Chile",
+    "web": "https://impactmedia.cl",
+    "emails": "contacto@impactmedia.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Go Digital Chile",
+    "web": "https://godigital.cl",
+    "emails": "info@godigital.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Smart Digital",
+    "web": "https://smartdigital.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Agency One Chile",
+    "web": "https://agencyone.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Social Boost Chile",
+    "web": "https://socialboost.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Media Source Chile",
+    "web": "https://mediasource.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Lab Digital",
+    "web": "https://labdigital.cl",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Wow",
+    "web": "https://agenciawow.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Rocket Digital Chile",
+    "web": "https://rocketdigital.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Disruptiva",
+    "web": "https://disruptiva.cl",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "chile",
+    "name": "Nube Digital Chile",
+    "web": "https://nubedigital.cl",
+    "emails": "nubedigitalchile@gmail.com",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Medios Digitales Chile",
+    "web": "https://mediosdigitales.cl",
+    "emails": "contacto@mediosdigitales.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Agencia Delta Chile",
+    "web": "https://agenciadelta.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Fly Media Chile",
+    "web": "https://flymedia.cl",
+    "emails": "nosotrosContacto@flymedia.cl;contacto@flymedia.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Target Chile",
+    "web": "https://target.cl",
+    "emails": "email@dominio.com;ventas@target.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "Nexo Digital Chile",
+    "web": "https://nexodigital.cl",
+    "emails": "agencia@nexodigital.cl",
+    "status": 200
+  },
+  {
+    "country": "chile",
+    "name": "360 Digital Chile",
+    "web": "https://360digital.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Performly Chile",
+    "web": "https://performly.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "chile",
+    "name": "Shift Marketing Chile",
+    "web": "https://shiftmarketing.cl",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Ogilvy Mexico",
+    "web": "https://ogilvy.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "McCann Mexico",
+    "web": "https://mccann.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "BBDO Mexico",
+    "web": "https://bbdo.com.mx",
+    "emails": "quierotrabajaren@bbdomexico.com",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "DDB Mexico",
+    "web": "https://ddb.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Publicis Mexico",
+    "web": "https://publicis.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Havas Mexico",
+    "web": "https://havas.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Leo Burnett Mexico",
+    "web": "https://leoburnett.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Grey Mexico",
+    "web": "https://grey.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Wunderman Thompson Mexico",
+    "web": "https://wundermanthompson.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "JWT Mexico",
+    "web": "https://jwt.com.mx",
+    "emails": "bongdaso.team@gmail.com",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Ganem Group",
+    "web": "https://ganem.com.mx",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "mexico",
+    "name": "Archer Troy",
+    "web": "https://archertroy.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Anónimo",
+    "web": "https://anonimo.com.mx",
+    "emails": "anonimoo@gmail.com",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Bombay",
+    "web": "https://bombay.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Sparkling",
+    "web": "https://sparkling.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Elogia Mexico",
+    "web": "https://elogia.net",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Cliento",
+    "web": "https://clfrankiento.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Media Source",
+    "web": "https://mediasource.mx",
+    "emails": "hola@m-s.co",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Prospect Factory",
+    "web": "https://prospectfactory.com.mx",
+    "emails": "contacto@prospectfactory.com.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Smartup Mexico",
+    "web": "https://smartup.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Blank",
+    "web": "https://blank.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Masclicks",
+    "web": "https://masclicks.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Crea Tu Web",
+    "web": "https://creatuweb.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Mijo Brands",
+    "web": "https://mijobrands.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Zitro Digital",
+    "web": "https://zitrodigital.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Marca Lima",
+    "web": "https://marcalima.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Digital Friks",
+    "web": "https://digitalfriks.com",
+    "emails": "hablacon@digitalfriks.com",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Rocket Marketing Mexico",
+    "web": "https://rocketmarketing.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "BMG Media",
+    "web": "https://bmgmedia.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Netcommerce",
+    "web": "https://netcommerce.mx",
+    "emails": "info@netcommerce.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Quiroga Agency",
+    "web": "https://quirogaagency.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Gou Mx",
+    "web": "https://gou.mx",
+    "emails": "info@gou.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Brand Industry",
+    "web": "https://brandindustry.mx",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "mexico",
+    "name": "Digital Business",
+    "web": "https://digitalbusiness.mx",
+    "emails": "digitalbsuport@gmail.com;ventas@digitalbusiness.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Merca2.0 Agency",
+    "web": "https://merca20.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Serendipia",
+    "web": "https://serendipia.digital",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Nobox Agency",
+    "web": "https://noboxagency.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "WebSeo",
+    "web": "https://webseo.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Traffic Agency",
+    "web": "https://trafficagency.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Agencia de Marketing Boom",
+    "web": "https://agenciaboom.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Digital Valley",
+    "web": "https://digitalvalley.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Kapital Creative",
+    "web": "https://kapitalcreative.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "SEM Mexico",
+    "web": "https://semmexico.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Posicionamiento Web Mexico",
+    "web": "https://posicionamientoweb.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Marketeros Latam Mexico",
+    "web": "https://marketeroslatam.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "InboundCycle Mexico",
+    "web": "https://inboundcycle.com/mexico",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Interius",
+    "web": "https://interius.com.mx",
+    "emails": "marketing@interius.com.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Zebra Advertising",
+    "web": "https://zebraadvertising.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Crecimiento Digital",
+    "web": "https://crecimientodigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Trece Bits Mexico",
+    "web": "https://trecebits.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Impact Hub Mexico",
+    "web": "https://mexico.impacthub.net",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Glow Marketing",
+    "web": "https://glowmarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Funky Marketing Mexico",
+    "web": "https://funkymarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Inbound Emotion Mexico",
+    "web": "https://inboundemotion.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Galería de Creativos",
+    "web": "https://galeriadecretivos.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Clickmedia",
+    "web": "https://clickmedia.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Nativa Global",
+    "web": "https://nativaglobal.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Punto Rojo Media",
+    "web": "https://puntorojomedia.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Atlas Digital MX",
+    "web": "https://atlasdigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Agencia Matrix",
+    "web": "https://agenciamatrix.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Pixel Creativo MX",
+    "web": "https://pixelcreativo.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Social Press MX",
+    "web": "https://socialpress.mx",
+    "emails": "hermann@socialpress.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Coco Marketing",
+    "web": "https://cocomarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Fuel Digital",
+    "web": "https://fueldigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Green Marketing Mexico",
+    "web": "https://greenmarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Agencia Naranja",
+    "web": "https://agencianaranja.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Fast Brand Mexico",
+    "web": "https://fastbrand.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Mr Marketing MX",
+    "web": "https://mrmarketing.mx",
+    "emails": "contacto@mrmarketing.mx",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Next Level MX",
+    "web": "https://nextlevel.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Tribal Mexico",
+    "web": "https://tribal.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Moove Digital MX",
+    "web": "https://moovedigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Linio Marketing",
+    "web": "https://liniomarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Studio 57",
+    "web": "https://studio57.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Red Creativa Mexico",
+    "web": "https://redcreativa.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Prime Marketing MX",
+    "web": "https://primemarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Agencia Impulsa",
+    "web": "https://agenciaimpulsa.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Scale Digital MX",
+    "web": "https://scaledigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Mars Digital Mexico",
+    "web": "https://marsdigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Bloom Digital MX",
+    "web": "https://bloomdigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Wave Marketing MX",
+    "web": "https://wavemarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Fire Media Mexico",
+    "web": "https://firemedia.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Nova Advertising MX",
+    "web": "https://novaadvertising.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Apex Marketing MX",
+    "web": "https://apexmarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Core Digital Mexico",
+    "web": "https://coredigital.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Innova Marketing MX",
+    "web": "https://innovamarketing.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Media Lab Mexico",
+    "web": "https://medialab.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Fusion Agencia MX",
+    "web": "https://fusionagencia.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Zenith Mexico",
+    "web": "https://zenithmedia.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Mindshare Mexico",
+    "web": "https://mindshareworld.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Starcom Mexico",
+    "web": "https://starcom.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "OMD Mexico",
+    "web": "https://omd.com.mx",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "mexico",
+    "name": "PHD Mexico",
+    "web": "https://phdmedia.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Carat Mexico",
+    "web": "https://carat.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Initiative Mexico",
+    "web": "https://initiative.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Vizeum Mexico",
+    "web": "https://vizeum.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "iProspect Mexico",
+    "web": "https://iprospect.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "Performics Mexico",
+    "web": "https://performics.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Possible Mexico",
+    "web": "https://possible.com.mx",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "mexico",
+    "name": "Mullen Lowe Mexico",
+    "web": "https://mullenlowe.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "FCB Mexico",
+    "web": "https://fcb.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "mexico",
+    "name": "VMLY&R Mexico",
+    "web": "https://vmlyr.com.mx",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Ogilvy España",
+    "web": "https://ogilvy.es",
+    "emails": "jordi.urbea@ogilvy.com;victoria.rodriguez@ogilvy.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "McCann España",
+    "web": "https://mccann.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "BBDO España",
+    "web": "https://bbdo.es",
+    "emails": "luis.barragan@omc.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "DDB España",
+    "web": "https://ddb.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Publicis España",
+    "web": "https://publicis.es",
+    "emails": "",
+    "status": 202
+  },
+  {
+    "country": "spain",
+    "name": "Havas España",
+    "web": "https://havas.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Leo Burnett España",
+    "web": "https://leoburnett.es",
+    "emails": "",
+    "status": 202
+  },
+  {
+    "country": "spain",
+    "name": "Grey España",
+    "web": "https://grey.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Wunderman Thompson España",
+    "web": "https://wundermanthompson.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "JWT España",
+    "web": "https://jwt.es",
+    "emails": "info@jwt.es;INFO@JWT.ES",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Cyberclick",
+    "web": "https://cyberclick.es",
+    "emails": "info@cyberclick.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "NeoAttack",
+    "web": "https://neoattack.com",
+    "emails": "mail@web.com;celia@thirdclientagent.com;irene@visualvdesign.com;alexmary528@gmail.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "InboundCycle",
+    "web": "https://inboundcycle.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Factorial Digital",
+    "web": "https://factorialdigital.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Elogia",
+    "web": "https://elogia.net",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "T2O Media",
+    "web": "https://t2omedia.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "ROI UP Group",
+    "web": "https://roiup.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Kanlli",
+    "web": "https://kanlli.com",
+    "emails": "info@kanlli.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Flat 101",
+    "web": "https://flat101.es",
+    "emails": "info@flat101.es;madrid@flat101.es;barcelona@flat101.es;zaragoza@flat101.es;latam@flat101.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "SIDN Digital Thinking",
+    "web": "https://sidn.es",
+    "emails": "info@sidn.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Websa100",
+    "web": "https://websa100.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Baud",
+    "web": "https://baud.es",
+    "emails": "baud@baud.es;mad@baud.es;bcn@baud.es;pamplona@baud.es",
+    "status": 403
+  },
+  {
+    "country": "spain",
+    "name": "Novicell",
+    "web": "https://novicell.es",
+    "emails": "hola@novicell.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Incógnito",
+    "web": "https://agenciaincognito.com",
+    "emails": "info@misitio.com;contacto@agenciaincognito.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Artefacto Digital",
+    "web": "https://artefactodigital.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Secuoyas",
+    "web": "https://secuoyas.com",
+    "emails": "hiddenaddress@secuoyas.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Parnaso",
+    "web": "https://pfrankarnaso.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Contrapunto BBDO",
+    "web": "https://contrapuntobbdo.es",
+    "emails": "luis.barragan@omc.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Sra. Rushmore",
+    "web": "https://srarushmore.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Shackleton",
+    "web": "https://shfrackleton.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "El Ruso de Rocky",
+    "web": "https://elrusoderocky.com",
+    "emails": "hola@elrusoderocky.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "PS21",
+    "web": "https://ps21.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Kitchen",
+    "web": "https://kitchen.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Apple Tree",
+    "web": "https://appletree.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Llorente y Cuenca (LLYC)",
+    "web": "https://llofrankrenteyfrankuenca.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Comunica +A",
+    "web": "https://comunicamas.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Social Mood",
+    "web": "https://40defiebre.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Roi Scroll",
+    "web": "https://roiscroll.com",
+    "emails": "hello@roiscroll.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "MarketiNet",
+    "web": "https://marketinet.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Human Level",
+    "web": "https://humanlevel.com",
+    "emails": "info@humanlevel.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Aula CM",
+    "web": "https://aulacm.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Nivel de Calidad",
+    "web": "https://niveldecalidad.com",
+    "emails": "contacto@niveldecalidad.com;contacto@danydelvalle.com",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "SocialBorn",
+    "web": "https://socialborn.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Btodigital",
+    "web": "https://bfranktodigital.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Summa Branding",
+    "web": "https://summa.es",
+    "emails": "chacal@herraizsoto.com;barcelona@summa.es;madrid@summa.es;lisboa@summa.pt;jcastillo@summa.es;talento@summa.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Morillas",
+    "web": "https://morillas.com",
+    "emails": "Peggy.Rau0@yahoo.com;name.surname@yourcompany.com;name.surname@gmail.com;hola@morillas.com;careers@morillas.com;info@morillas.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Manifiesto",
+    "web": "https://manifiesto.biz",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Good Rebels",
+    "web": "https://goodrebels.com",
+    "emails": "",
+    "status": 202
+  },
+  {
+    "country": "spain",
+    "name": "Making Science",
+    "web": "https://makingscience.com",
+    "emails": "info@makingscience.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Internet Republica",
+    "web": "https://internetrepublica.com",
+    "emails": "hola@internetrepublica.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Digital Menta",
+    "web": "https://digitalmenta.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Hiberus Digital",
+    "web": "https://hiberus.com",
+    "emails": "ejemplo@mail.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Lifting Group",
+    "web": "https://liftinggroup.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "The Cocktail",
+    "web": "https://the-cocktail.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Wild Wild Web",
+    "web": "https://wildwildweb.es",
+    "emails": "info@wildwildweb.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Sr Burns",
+    "web": "https://srburns.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Agencia B12",
+    "web": "https://agenciab12.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Digital Group",
+    "web": "https://digitalgroup.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "BrainSINS",
+    "web": "https://brainsins.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Findasense",
+    "web": "https://findasense.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Multiplica",
+    "web": "https://multiplica.com",
+    "emails": "barcelona@multiplica.com;colombia@multiplica.com;buenosaires@multiplica.com;mexico@multiplica.com;lima@multiplica.com;madrid@multiplica.com;usa@multiplica.com;santiago@multiplica.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Territorio Creativo",
+    "web": "https://territoriocreativo.es",
+    "emails": "",
+    "status": 202
+  },
+  {
+    "country": "spain",
+    "name": "Hello Media Group",
+    "web": "https://hellomedia.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "iCrossing Spain",
+    "web": "https://icrossing.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Dentsu Spain",
+    "web": "https://dentsu.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Zenith Spain",
+    "web": "https://zenithmedia.es",
+    "emails": "info@zenithmedia.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Mindshare Spain",
+    "web": "https://mindshareworld.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Starcom Spain",
+    "web": "https://starcom.es",
+    "emails": "info@starcom.es;info@starcomunicaciones.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "OMD Spain",
+    "web": "https://omd.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "PHD Spain",
+    "web": "https://phdmedia.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Carat Spain",
+    "web": "https://carat.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Initiative Spain",
+    "web": "https://initiative.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Alma Medialab",
+    "web": "https://almamedialab.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Prisa Brand Solutions",
+    "web": "https://prisabs.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Labelium España",
+    "web": "https://labelium.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "WAM Global",
+    "web": "https://wfrankamglobal.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Bluecell",
+    "web": "https://bluecell.es",
+    "emails": "hola@bluecell.es;hola@bluecell.co;hola@bluecell.mx;hola@bluecellusa.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Ondho",
+    "web": "https://ondho.com",
+    "emails": "info@ondho.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Adglow",
+    "web": "https://adglow.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Smartbrand",
+    "web": "https://smartbrand.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "El Publicista",
+    "web": "https://elpublicista.es",
+    "emails": "elpublicista@elpublicista.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Atrevia",
+    "web": "https://atrevia.com",
+    "emails": "",
+    "status": 202
+  },
+  {
+    "country": "spain",
+    "name": "Marco de Comunicación",
+    "web": "https://marcodecomunicacion.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Torres y Carrera",
+    "web": "https://torresycarrera.com",
+    "emails": "torresycarrera@torresycarrera.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "128 Comunicación",
+    "web": "https://128comunicacion.com",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Trescom",
+    "web": "https://tfrankresfrankcom.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Nothingad",
+    "web": "https://nothingad.com",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Semrush Agency Spain",
+    "web": "https://semrush.es",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "spain",
+    "name": "Eskimoz España",
+    "web": "https://eskimoz.es",
+    "emails": "alexandre.courbin@eskimoz.fr",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Gacelaweb",
+    "web": "https://gacelaweb.com",
+    "emails": "info@gacelaweb.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "K-Digital",
+    "web": "https://kdigital.es",
+    "emails": "kdigital@tepsis.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Jevnet",
+    "web": "https://jevnet.com",
+    "emails": "",
+    "status": 403
+  },
+  {
+    "country": "spain",
+    "name": "Webpositer",
+    "web": "https://webpositer.com",
+    "emails": "info@webpositer.com",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "SEMrush Partner ES",
+    "web": "https://semrushpartner.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Bring Media",
+    "web": "https://bringmedia.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Digital Virgo España",
+    "web": "https://digitalvirgo.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Tribal Spain",
+    "web": "https://tribal.es",
+    "emails": "",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "MRM Spain",
+    "web": "https://mrm.es",
+    "emails": "info@mrm.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "Rethink Marketing",
+    "web": "https://rethinkmarketing.es",
+    "emails": "info@rethinkmarketing.es",
+    "status": 200
+  },
+  {
+    "country": "spain",
+    "name": "All Around",
+    "web": "https://allaround.es",
+    "emails": "",
+    "status": "error"
+  },
+  {
+    "country": "spain",
+    "name": "Sync Marketing Spain",
+    "web": "https://syncmarketing.es",
+    "emails": "contacto@syncmk.com",
+    "status": 200
+  }
+]
