@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 const YOUTUBE_API_KEYS = [
   process.env.YOUTUBE_API_KEY,
   process.env.YOUTUBE_API_KEY_2,
+  process.env.YOUTUBE_API_KEY_3,
 ].filter(Boolean);
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
