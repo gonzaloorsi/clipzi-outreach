@@ -633,7 +633,7 @@ for (const ch of toSend) {
   const name = cleanName(ch.title);
   const email = ch.primaryEmail;
 
-  const htmlBody = `<p>Hola equipo de ${name},</p><p>Clipzi (https://clipzi.app/) convierte videos largos en clips para TikTok, Reels y Shorts. Suben el video, la IA elige los mejores momentos, y ustedes los ajustan en un editor visual antes de publicar.</p><p>La herramienta es gratuita para todos, y mejorada para suscriptores. Si les interesa, podemos hacer algo específico para ${name}.</p><p>${SENDER_NAME}<br/>Co-founder &amp; CEO, Clipzi</p>`;
+  const htmlBody = `<p>Hola equipo de ${name},</p><p>Clipzi convierte videos largos en clips para TikTok, Reels y Shorts. Suben el video, la IA encuentra los mejores momentos, y luego los ajustan en un editor visual.</p><p>Damos 2 videos gratis por mes para probar el flujo. Si después necesitan más uso o más funciones, hay planes pagos.</p><p>Si les interesa, podemos hacer algo específico para ${name}.</p><p>${SENDER_NAME}<br/>Co-founder &amp; CEO, Clipzi</p>`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
