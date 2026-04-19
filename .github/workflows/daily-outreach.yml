@@ -1,0 +1,33 @@
+name: Daily YouTube Outreach
+
+on:
+  schedule:
+    # Run at 8:05 AM UTC (midnight Pacific + buffer for quota reset)
+    - cron: '5 8 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  outreach:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      - name: Run daily outreach
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          SENDER_NAME: ${{ secrets.SENDER_NAME }}
+        run: node daily-outreach.mjs
+      
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Daily outreach: $(date +%Y-%m-%d)"
+          git push
