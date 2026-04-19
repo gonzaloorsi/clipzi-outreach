@@ -2,8 +2,8 @@ name: Daily YouTube Outreach
 
 on:
   schedule:
-    # Run at 8:05 AM UTC (midnight Pacific + buffer for quota reset)
-    - cron: '5 8 * * *'
+    # Run at 7:47 AM Argentina (10:47 UTC)
+    - cron: '47 10 * * *'
   workflow_dispatch: # Allow manual trigger
 
 permissions:
