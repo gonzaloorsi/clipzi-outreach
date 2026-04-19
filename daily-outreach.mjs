@@ -5,19 +5,40 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 
 // ─── Config ────────────────────────────────────────────────────────────────
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const YOUTUBE_API_KEYS = [
+  process.env.YOUTUBE_API_KEY,
+  process.env.YOUTUBE_API_KEY_2,
+].filter(Boolean);
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SENDER_EMAIL = process.env.SENDER_EMAIL;
 const SENDER_NAME = process.env.SENDER_NAME;
 
-const MAX_EMAILS_PER_DAY = 50;
+const MAX_EMAILS_PER_DAY = 100;
 const QUERIES_PER_RUN = 50;
 const SEND_DELAY_MS = 200;
 
-if (!YOUTUBE_API_KEY) { console.error("❌ Missing YOUTUBE_API_KEY"); process.exit(1); }
+let currentKeyIndex = 0;
+
+function getCurrentApiKey() {
+  return YOUTUBE_API_KEYS[currentKeyIndex];
+}
+
+function switchToNextKey() {
+  if (currentKeyIndex + 1 < YOUTUBE_API_KEYS.length) {
+    currentKeyIndex++;
+    console.log(`  🔑 Switched to API key ${currentKeyIndex + 1}/${YOUTUBE_API_KEYS.length}`);
+    return true;
+  }
+  return false;
+}
+
+if (YOUTUBE_API_KEYS.length === 0) { console.error("❌ Missing YOUTUBE_API_KEY"); process.exit(1); }
 if (!RESEND_API_KEY) { console.error("❌ Missing RESEND_API_KEY"); process.exit(1); }
 if (!SENDER_EMAIL) { console.error("❌ Missing SENDER_EMAIL"); process.exit(1); }
 if (!SENDER_NAME) { console.error("❌ Missing SENDER_NAME"); process.exit(1); }
+
+console.log(`🔑 YouTube API keys loaded: ${YOUTUBE_API_KEYS.length}`);
 
 // ─── Search Query Pool (~200 unique queries) ────────────────────────────────
 // These are all NEW queries — not overlapping with fetch-channels.mjs,
@@ -272,13 +293,17 @@ function sleep(ms) {
 
 async function ytGet(endpoint, params) {
   const url = new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`);
-  params.key = YOUTUBE_API_KEY;
+  params.key = getCurrentApiKey();
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text();
     if (body.includes("quota")) {
+      // Try switching to next key
+      if (switchToNextKey()) {
+        return ytGet(endpoint, params); // Retry with new key
+      }
       throw new Error("QUOTA_EXCEEDED");
     }
     throw new Error(`YouTube API ${res.status}: ${body.slice(0, 200)}`);
