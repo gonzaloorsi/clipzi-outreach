@@ -702,3 +702,75 @@ console.log(`  📊 Total emails all-time: ${updatedSendResults.length}`);
 console.log(`  ⚡ Quota used: ~${quotaUsed} units`);
 console.log(`  🔄 Next query index: ${nextQueryIndex}`);
 console.log("═══════════════════════════════════════════════════\n");
+
+// ─── Step G: Send Report Email ──────────────────────────────────────────────
+
+if (newSendResults.length > 0) {
+  console.log("=== STEP 6: Sending report to gonzaloorsi@gmail.com ===\n");
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const tableRows = newSendResults.map((r) => {
+    const subs = r.subscribers >= 1e6
+      ? (r.subscribers / 1e6).toFixed(1) + "M"
+      : (r.subscribers / 1e3).toFixed(0) + "K";
+    const status = r.status === "sent"
+      ? "✅ Enviado"
+      : `❌ ${r.error || "Error"}`;
+    return `<tr>
+      <td style="padding:8px;border:1px solid #ddd;">${r.cleanName || r.channel}</td>
+      <td style="padding:8px;border:1px solid #ddd;text-align:right;">${subs}</td>
+      <td style="padding:8px;border:1px solid #ddd;">${r.email}</td>
+      <td style="padding:8px;border:1px solid #ddd;">${status}</td>
+    </tr>`;
+  }).join("");
+
+  const reportHtml = `
+    <h2>Clipzi Outreach Report — ${today}</h2>
+    <p>
+      <strong>Queries:</strong> ${queriesToRun.length} |
+      <strong>Canales descubiertos:</strong> ${discoveredChannelIds.size} |
+      <strong>Con email:</strong> ${withEmail.length} |
+      <strong>Enviados:</strong> ${sentCount} |
+      <strong>Fallidos:</strong> ${failedCount} |
+      <strong>Total histórico:</strong> ${updatedSendResults.length}
+    </p>
+    <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px;">
+      <thead>
+        <tr style="background:#f5f5f5;">
+          <th style="padding:8px;border:1px solid #ddd;text-align:left;">Canal</th>
+          <th style="padding:8px;border:1px solid #ddd;text-align:right;">Subs</th>
+          <th style="padding:8px;border:1px solid #ddd;text-align:left;">Email</th>
+          <th style="padding:8px;border:1px solid #ddd;text-align:left;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  `;
+
+  try {
+    const reportRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: `Clipzi Outreach Bot <${SENDER_EMAIL}>`,
+        to: ["gonzaloorsi@gmail.com"],
+        subject: `Outreach Report ${today} — ${sentCount} enviados, ${updatedSendResults.length} total`,
+        html: reportHtml,
+      }),
+    });
+    if (reportRes.ok) {
+      console.log("📧 Report sent to gonzaloorsi@gmail.com");
+    } else {
+      const err = await reportRes.json();
+      console.log(`❌ Failed to send report: ${err.message}`);
+    }
+  } catch (err) {
+    console.log(`❌ Failed to send report: ${err.message}`);
+  }
+} else {
+  console.log("📭 No sends today — skipping report email.");
+}
