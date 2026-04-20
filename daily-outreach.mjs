@@ -16,8 +16,9 @@ const SENDER_EMAIL = process.env.SENDER_EMAIL;
 const SENDER_NAME = process.env.SENDER_NAME;
 
 const MAX_EMAILS_PER_DAY = 100;
-const QUERIES_PER_RUN = 50;
+const QUERIES_PER_RUN = 150;
 const SEND_DELAY_MS = 200;
+const MIN_SUBSCRIBERS = 10_000;
 
 let currentKeyIndex = 0;
 
@@ -569,9 +570,10 @@ const candidates = [];
 
 const withEmail = channels
   .filter((ch) => ch.emails && ch.emails.trim().length > 0)
-  .filter((ch) => !sentChannelIds.has(ch.channelId));
+  .filter((ch) => !sentChannelIds.has(ch.channelId))
+  .filter((ch) => ch.subscribers >= MIN_SUBSCRIBERS);
 
-console.log(`Channels with email: ${withEmail.length}`);
+console.log(`Channels with email (≥${MIN_SUBSCRIBERS / 1000}K subs): ${withEmail.length}`);
 
 // Deduplicate by email
 for (const ch of withEmail) {
