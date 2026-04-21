@@ -812,6 +812,16 @@ const sentChannelIds = new Set(
   sendResults.filter((s) => s.channelId).map((s) => s.channelId)
 );
 
+// Load discovered channel IDs cache (all channels we've ever seen)
+let discoveredCache = [];
+try {
+  discoveredCache = JSON.parse(readFileSync("discovered_ids.json", "utf-8"));
+  console.log(`🗄️  Discovered channels cache: ${discoveredCache.length} IDs`);
+} catch (e) {
+  console.log("🗄️  No discovered_ids.json found, starting fresh cache");
+}
+const knownChannelIds = new Set(discoveredCache);
+
 // Load search state
 let searchState = { queryIndex: 0, lastRun: null, totalSent: sendResults.length };
 try {
@@ -928,6 +938,7 @@ if (discoveredChannelIds.size === 0) {
   searchState.queryIndex = nextQueryIndex;
   searchState.lastRun = new Date().toISOString();
   writeFileSync("search_state.json", JSON.stringify(searchState, null, 2));
+  writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
   process.exit(0);
 }
 
@@ -936,11 +947,15 @@ if (discoveredChannelIds.size === 0) {
 console.log("=== STEP 2: Fetching channel details ===\n");
 
 // Reset quota state: try all keys again for details
-// Some keys might have been exhausted during search but others might still work
 quotaExceeded = false;
 currentKeyIndex = 0;
 
-const channelIdArray = [...discoveredChannelIds];
+// Only fetch details for channels NOT already in our cache
+const allDiscoveredIds = [...discoveredChannelIds];
+const newChannelIds = allDiscoveredIds.filter(id => !knownChannelIds.has(id));
+console.log(`  Discovered: ${allDiscoveredIds.length} total, ${allDiscoveredIds.length - newChannelIds.length} already cached, ${newChannelIds.length} NEW\n`);
+
+const channelIdArray = newChannelIds;
 const channels = [];
 const BATCH_SIZE = 50;
 
@@ -1034,6 +1049,9 @@ if (toSend.length === 0) {
   searchState.queryIndex = nextQueryIndex;
   searchState.lastRun = new Date().toISOString();
   writeFileSync("search_state.json", JSON.stringify(searchState, null, 2));
+  for (const id of allDiscoveredIds) knownChannelIds.add(id);
+  writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
+  console.log(`📝 Updated discovered_ids.json: ${knownChannelIds.size} IDs`);
   process.exit(0);
 }
 
@@ -1154,6 +1172,11 @@ const successfulSends = newSendResults.filter((r) => r.status === "sent");
 const updatedSendResults = [...sendResults, ...successfulSends];
 writeFileSync("send_results.json", JSON.stringify(updatedSendResults, null, 2));
 console.log(`📝 Updated send_results.json: ${sendResults.length} → ${updatedSendResults.length} entries`);
+
+// Update discovered IDs cache (ALL channels we've ever seen)
+for (const id of allDiscoveredIds) knownChannelIds.add(id);
+writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
+console.log(`📝 Updated discovered_ids.json: ${discoveredCache.length} → ${knownChannelIds.size} IDs`);
 
 // Update search state
 searchState.queryIndex = nextQueryIndex;
