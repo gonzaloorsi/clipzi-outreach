@@ -1,5 +1,6 @@
 // daily-outreach.mjs
 // Automated daily YouTube outreach for Clipzi
+// Queue-based architecture: discovers channels → queues → sends from queue
 // Searches YouTube for channels with emails, scores them, sends personalized emails via Resend
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -22,6 +23,7 @@ const SENDERS = [
 ].filter(s => s.email);
 
 const MAX_EMAILS_PER_DAY = SENDERS.reduce((sum, s) => sum + s.limit, 0);
+const QUEUE_THRESHOLD = 400; // 2 days buffer at 200/day
 const QUERIES_PER_RUN = 150;
 const SEND_DELAY_MS = 200;
 const MIN_SUBSCRIBERS = 7_000;
@@ -827,240 +829,294 @@ let searchState = { queryIndex: 0, lastRun: null, totalSent: sendResults.length 
 try {
   searchState = JSON.parse(readFileSync("search_state.json", "utf-8"));
   console.log(`🔍 Query pool index: ${searchState.queryIndex}/${QUERY_POOL.length}`);
-  console.log(`📊 Total sent so far: ${searchState.totalSent}\n`);
+  console.log(`📊 Total sent so far: ${searchState.totalSent}`);
 } catch (e) {
-  console.log("🔍 No search_state.json found, starting from index 0\n");
+  console.log("🔍 No search_state.json found, starting from index 0");
 }
 
-// ─── Step B: Search YouTube ─────────────────────────────────────────────────
-
-console.log("=== STEP 1: Searching YouTube ===\n");
-
-// Pick next batch of queries (rotating through pool)
-let startIdx = searchState.queryIndex % QUERY_POOL.length;
-const queriesToRun = [];
-for (let i = 0; i < QUERIES_PER_RUN; i++) {
-  queriesToRun.push(QUERY_POOL[(startIdx + i) % QUERY_POOL.length]);
+// Load email queue
+let emailQueue = [];
+try {
+  emailQueue = JSON.parse(readFileSync("email_queue.json", "utf-8"));
+  console.log(`📋 Email queue: ${emailQueue.length} pending`);
+} catch (e) {
+  console.log("📋 No email_queue.json found, starting empty queue");
 }
-const nextQueryIndex = (startIdx + QUERIES_PER_RUN) % QUERY_POOL.length;
 
-console.log(`Running queries ${startIdx} to ${startIdx + QUERIES_PER_RUN - 1} (of ${QUERY_POOL.length} total)\n`);
+const queueBefore = emailQueue.length;
 
-const discoveredChannelIds = new Set();
+// Filter queue: remove items whose email is already in sentEmails (in case send_results.json was updated externally)
+const queueBeforeCleanup = emailQueue.length;
+emailQueue = emailQueue.filter(item => !sentEmails.has(item.primaryEmail.toLowerCase()));
+emailQueue = emailQueue.filter(item => !sentChannelIds.has(item.channelId));
+if (emailQueue.length < queueBeforeCleanup) {
+  console.log(`📋 Cleaned queue: removed ${queueBeforeCleanup - emailQueue.length} already-sent items (${emailQueue.length} remaining)`);
+}
+
+console.log(""); // blank line after state loading
+
+// ─── Step B/C/D: Conditional Search + Fetch + Filter ────────────────────────
+
+// Track variables used in summary/report — initialize with defaults
+let queriesToRun = [];
+let discoveredChannelIds = new Set();
+let withEmailCount = 0;
+let candidatesCount = 0;
 let quotaUsed = 0;
-let quotaExceeded = false;
+let nextQueryIndex = searchState.queryIndex;
 
-// Reserve quota for channel detail fetches (Step 2)
-// Each search page = 100 units. Each detail batch (50 channels) = 1 unit.
-// Split budget 70/30: 70% for search, 30% for details.
-// With 4 keys = 40K total: 28K search + 12K details (enough for 600K channels)
-// Even if keys are partially used, 30% reserve is safe.
-const QUOTA_PER_KEY = 10_000;
-const TOTAL_QUOTA = YOUTUBE_API_KEYS.length * QUOTA_PER_KEY;
-const MAX_SEARCH_QUOTA = Math.floor(TOTAL_QUOTA * 0.7);
-const QUOTA_RESERVE_FOR_DETAILS = TOTAL_QUOTA - MAX_SEARCH_QUOTA;
+if (emailQueue.length < QUEUE_THRESHOLD) {
+  console.log(`📋 Queue below threshold (${emailQueue.length}/${QUEUE_THRESHOLD}) — searching for more...\n`);
 
-// Also: stop searching if we have enough channels already.
-// Details cost 1 unit per 50 channels. Even with 10K channels, details only cost 200 units.
-// The real constraint is finding NEW channels with emails, so more search = better.
-// But cap at a reasonable number to not waste quota if keys are partially used.
-const MAX_CHANNELS = 15_000;
+  // ─── Search YouTube ───────────────────────────────────────────────────────
 
-console.log(`  Quota budget: ${TOTAL_QUOTA} total, ${MAX_SEARCH_QUOTA} for search, ${QUOTA_RESERVE_FOR_DETAILS} reserved for details`);
-console.log(`  Max channels cap: ${MAX_CHANNELS}\n`);
+  console.log("=== STEP 1: Searching YouTube ===\n");
 
-for (const query of queriesToRun) {
-  if (quotaExceeded) break;
-  if (quotaUsed >= MAX_SEARCH_QUOTA) {
-    console.log(`  ⏹️  Search quota budget reached (${quotaUsed}/${MAX_SEARCH_QUOTA}) — saving rest for details`);
-    break;
+  // Pick next batch of queries (rotating through pool)
+  let startIdx = searchState.queryIndex % QUERY_POOL.length;
+  for (let i = 0; i < QUERIES_PER_RUN; i++) {
+    queriesToRun.push(QUERY_POOL[(startIdx + i) % QUERY_POOL.length]);
   }
-  if (discoveredChannelIds.size >= MAX_CHANNELS) {
-    console.log(`  ⏹️  Channel cap reached (${discoveredChannelIds.size}/${MAX_CHANNELS}) — moving to details`);
-    break;
-  }
-  
-  let pageToken = "";
-  let pageNum = 0;
-  const MAX_PAGES = 3;
-  
-  while (pageNum < MAX_PAGES && !quotaExceeded) {
-    try {
-      const params = {
-        part: "snippet",
-        q: query,
-        type: "channel",
-        maxResults: "50",
-        relevanceLanguage: "es",
-      };
-      if (pageToken) params.pageToken = pageToken;
-      
-      const data = await ytGet("search", params);
-      quotaUsed += 100;
-      pageNum++;
+  nextQueryIndex = (startIdx + QUERIES_PER_RUN) % QUERY_POOL.length;
 
-      for (const item of data.items || []) {
-        const channelId = item.snippet?.channelId || item.id?.channelId;
-        if (channelId) {
-          discoveredChannelIds.add(channelId);
+  console.log(`Running queries ${startIdx} to ${startIdx + QUERIES_PER_RUN - 1} (of ${QUERY_POOL.length} total)\n`);
+
+  let quotaExceeded = false;
+
+  // Reserve quota for channel detail fetches (Step 2)
+  const QUOTA_PER_KEY = 10_000;
+  const TOTAL_QUOTA = YOUTUBE_API_KEYS.length * QUOTA_PER_KEY;
+  const MAX_SEARCH_QUOTA = Math.floor(TOTAL_QUOTA * 0.7);
+  const QUOTA_RESERVE_FOR_DETAILS = TOTAL_QUOTA - MAX_SEARCH_QUOTA;
+
+  const MAX_CHANNELS = 15_000;
+
+  console.log(`  Quota budget: ${TOTAL_QUOTA} total, ${MAX_SEARCH_QUOTA} for search, ${QUOTA_RESERVE_FOR_DETAILS} reserved for details`);
+  console.log(`  Max channels cap: ${MAX_CHANNELS}\n`);
+
+  for (const query of queriesToRun) {
+    if (quotaExceeded) break;
+    if (quotaUsed >= MAX_SEARCH_QUOTA) {
+      console.log(`  ⏹️  Search quota budget reached (${quotaUsed}/${MAX_SEARCH_QUOTA}) — saving rest for details`);
+      break;
+    }
+    if (discoveredChannelIds.size >= MAX_CHANNELS) {
+      console.log(`  ⏹️  Channel cap reached (${discoveredChannelIds.size}/${MAX_CHANNELS}) — moving to details`);
+      break;
+    }
+    
+    let pageToken = "";
+    let pageNum = 0;
+    const MAX_PAGES = 3;
+    
+    while (pageNum < MAX_PAGES && !quotaExceeded) {
+      try {
+        const params = {
+          part: "snippet",
+          q: query,
+          type: "channel",
+          maxResults: "50",
+          relevanceLanguage: "es",
+        };
+        if (pageToken) params.pageToken = pageToken;
+        
+        const data = await ytGet("search", params);
+        quotaUsed += 100;
+        pageNum++;
+
+        for (const item of data.items || []) {
+          const channelId = item.snippet?.channelId || item.id?.channelId;
+          if (channelId) {
+            discoveredChannelIds.add(channelId);
+          }
+        }
+        
+        pageToken = data.nextPageToken || "";
+        if (!pageToken) break; // No more pages
+        
+      } catch (e) {
+        if (e.message === "QUOTA_EXCEEDED") {
+          console.log(`  ⚠️  Quota exceeded at "${query}" p${pageNum + 1} — stopping searches`);
+          quotaExceeded = true;
+        } else {
+          console.log(`  ❌ Error for "${query}" p${pageNum + 1}: ${e.message}`);
+          break;
         }
       }
-      
-      pageToken = data.nextPageToken || "";
-      if (!pageToken) break; // No more pages
-      
-    } catch (e) {
-      if (e.message === "QUOTA_EXCEEDED") {
-        console.log(`  ⚠️  Quota exceeded at "${query}" p${pageNum + 1} — stopping searches`);
-        quotaExceeded = true;
-      } else {
-        console.log(`  ❌ Error for "${query}" p${pageNum + 1}: ${e.message}`);
-        break;
-      }
+      await sleep(100);
+    }
+    
+    // Log after all pages for this query
+    if (!quotaExceeded) {
+      console.log(
+        `  ✅ "${query}" (${pageNum}p) → unique: ${discoveredChannelIds.size}`
+      );
     }
     await sleep(100);
   }
-  
-  // Log after all pages for this query
-  if (!quotaExceeded) {
-    console.log(
-      `  ✅ "${query}" (${pageNum}p) → unique: ${discoveredChannelIds.size}`
-    );
-  }
-  await sleep(100);
-}
 
-console.log(`\nTotal unique channel IDs discovered: ${discoveredChannelIds.size}`);
-console.log(`Quota used on searches: ~${quotaUsed} units\n`);
+  console.log(`\nTotal unique channel IDs discovered: ${discoveredChannelIds.size}`);
+  console.log(`Quota used on searches: ~${quotaUsed} units\n`);
 
-if (discoveredChannelIds.size === 0) {
-  console.log("⚠️  No channels discovered. Saving state and exiting.");
-  searchState.queryIndex = nextQueryIndex;
-  searchState.lastRun = new Date().toISOString();
-  writeFileSync("search_state.json", JSON.stringify(searchState, null, 2));
-  writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
-  process.exit(0);
-}
+  // ─── Fetch Channel Details ────────────────────────────────────────────────
 
-// ─── Step C: Fetch Channel Details ──────────────────────────────────────────
+  if (discoveredChannelIds.size > 0) {
+    console.log("=== STEP 2: Fetching channel details ===\n");
 
-console.log("=== STEP 2: Fetching channel details ===\n");
+    // Reset quota state: try all keys again for details
+    quotaExceeded = false;
+    currentKeyIndex = 0;
 
-// Reset quota state: try all keys again for details
-quotaExceeded = false;
-currentKeyIndex = 0;
+    // Only fetch details for channels NOT already in our cache
+    const allDiscoveredIds = [...discoveredChannelIds];
+    const newChannelIds = allDiscoveredIds.filter(id => !knownChannelIds.has(id));
+    console.log(`  Discovered: ${allDiscoveredIds.length} total, ${allDiscoveredIds.length - newChannelIds.length} already cached, ${newChannelIds.length} NEW\n`);
 
-// Only fetch details for channels NOT already in our cache
-const allDiscoveredIds = [...discoveredChannelIds];
-const newChannelIds = allDiscoveredIds.filter(id => !knownChannelIds.has(id));
-console.log(`  Discovered: ${allDiscoveredIds.length} total, ${allDiscoveredIds.length - newChannelIds.length} already cached, ${newChannelIds.length} NEW\n`);
+    const channelIdArray = newChannelIds;
+    const channels = [];
+    const BATCH_SIZE = 50;
 
-const channelIdArray = newChannelIds;
-const channels = [];
-const BATCH_SIZE = 50;
+    for (let i = 0; i < channelIdArray.length; i += BATCH_SIZE) {
+      if (quotaExceeded) break;
 
-for (let i = 0; i < channelIdArray.length; i += BATCH_SIZE) {
-  if (quotaExceeded) break;
+      const batch = channelIdArray.slice(i, i + BATCH_SIZE);
+      try {
+        const data = await ytGet("channels", {
+          part: "snippet,statistics",
+          id: batch.join(","),
+        });
+        quotaUsed += 1;
 
-  const batch = channelIdArray.slice(i, i + BATCH_SIZE);
-  try {
-    const data = await ytGet("channels", {
-      part: "snippet,statistics",
-      id: batch.join(","),
-    });
-    quotaUsed += 1;
+        for (const ch of data.items || []) {
+          const desc = ch.snippet?.description || "";
+          const emails = extractEmails(desc);
 
-    for (const ch of data.items || []) {
-      const desc = ch.snippet?.description || "";
-      const emails = extractEmails(desc);
+          channels.push({
+            title: ch.snippet.title,
+            channelId: ch.id,
+            country: ch.snippet?.country || "",
+            subscribers: parseInt(ch.statistics?.subscriberCount || "0"),
+            viewCount: parseInt(ch.statistics?.viewCount || "0"),
+            videoCount: parseInt(ch.statistics?.videoCount || "0"),
+            emails: emails.join(";"),
+            url: `https://youtube.com/channel/${ch.id}`,
+          });
+        }
 
-      channels.push({
-        title: ch.snippet.title,
-        channelId: ch.id,
-        country: ch.snippet?.country || "",
-        subscribers: parseInt(ch.statistics?.subscriberCount || "0"),
-        viewCount: parseInt(ch.statistics?.viewCount || "0"),
-        videoCount: parseInt(ch.statistics?.videoCount || "0"),
-        emails: emails.join(";"),
-        url: `https://youtube.com/channel/${ch.id}`,
+        process.stdout.write(
+          `  Fetched ${Math.min(i + BATCH_SIZE, channelIdArray.length)}/${channelIdArray.length} channels\r`
+        );
+      } catch (e) {
+        if (e.message === "QUOTA_EXCEEDED") {
+          console.log("\n  ⚠️  Quota exceeded during channel fetch");
+          quotaExceeded = true;
+        } else {
+          console.log(`\n  ❌ Error fetching batch: ${e.message}`);
+        }
+      }
+
+      await sleep(100);
+    }
+
+    console.log(`\nChannels with details: ${channels.length}`);
+    console.log(`Quota used so far: ~${quotaUsed} units\n`);
+
+    // ─── Filter & Score ─────────────────────────────────────────────────────
+
+    console.log("=== STEP 3: Filtering & scoring channels ===\n");
+
+    // Collect emails already in queue to avoid duplicates
+    const queueEmails = new Set(emailQueue.map(item => item.primaryEmail.toLowerCase()));
+    const queueChannelIds = new Set(emailQueue.map(item => item.channelId));
+
+    // Keep only channels with emails that haven't been contacted
+    const seenEmails = new Set([...sentEmails, ...queueEmails]);
+    const candidates = [];
+
+    const withEmail = channels
+      .filter((ch) => ch.emails && ch.emails.trim().length > 0)
+      .filter((ch) => !sentChannelIds.has(ch.channelId))
+      .filter((ch) => !queueChannelIds.has(ch.channelId))
+      .filter((ch) => ch.subscribers >= MIN_SUBSCRIBERS);
+
+    withEmailCount = withEmail.length;
+    console.log(`Channels with email (≥${MIN_SUBSCRIBERS / 1000}K subs): ${withEmail.length}`);
+
+    // Deduplicate by email
+    for (const ch of withEmail) {
+      const emails = ch.emails
+        .split(";")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      const newEmails = emails.filter((e) => !seenEmails.has(e));
+
+      if (newEmails.length > 0) {
+        newEmails.forEach((e) => seenEmails.add(e));
+        // Use first new email as the primary contact
+        ch.primaryEmail = newEmails[0];
+        ch.score = scoreChannel(ch);
+        candidates.push(ch);
+      }
+    }
+
+    candidatesCount = candidates.length;
+    console.log(`Candidates after dedup: ${candidates.length}`);
+
+    // Add candidates to email queue
+    for (const ch of candidates) {
+      emailQueue.push({
+        title: ch.title,
+        cleanName: cleanName(ch.title),
+        channelId: ch.channelId,
+        country: ch.country,
+        subscribers: ch.subscribers,
+        videoCount: ch.videoCount,
+        emails: ch.emails,
+        primaryEmail: ch.primaryEmail,
+        score: ch.score,
+        discoveredDate: new Date().toISOString(),
       });
     }
 
-    process.stdout.write(
-      `  Fetched ${Math.min(i + BATCH_SIZE, channelIdArray.length)}/${channelIdArray.length} channels\r`
-    );
-  } catch (e) {
-    if (e.message === "QUOTA_EXCEEDED") {
-      console.log("\n  ⚠️  Quota exceeded during channel fetch");
-      quotaExceeded = true;
-    } else {
-      console.log(`\n  ❌ Error fetching batch: ${e.message}`);
-    }
-  }
+    console.log(`📋 Queue after discovery: ${emailQueue.length} pending\n`);
 
-  await sleep(100);
+    // Update discovered IDs cache
+    for (const id of allDiscoveredIds) knownChannelIds.add(id);
+    writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
+    console.log(`📝 Updated discovered_ids.json: ${discoveredCache.length} → ${knownChannelIds.size} IDs\n`);
+  } else {
+    console.log("⚠️  No channels discovered from search.\n");
+  }
+} else {
+  console.log(`📋 Queue has ${emailQueue.length} pending (≥${QUEUE_THRESHOLD}) — skipping search, saving quota\n`);
 }
 
-console.log(`\nChannels with details: ${channels.length}`);
-console.log(`Quota used so far: ~${quotaUsed} units\n`);
+// ─── Step E: Send Emails from Queue ─────────────────────────────────────────
 
-// ─── Step D: Filter & Score ─────────────────────────────────────────────────
-
-console.log("=== STEP 3: Filtering & scoring channels ===\n");
-
-// Keep only channels with emails that haven't been contacted
-const seenEmails = new Set([...sentEmails]);
-const candidates = [];
-
-const withEmail = channels
-  .filter((ch) => ch.emails && ch.emails.trim().length > 0)
-  .filter((ch) => !sentChannelIds.has(ch.channelId))
-  .filter((ch) => ch.subscribers >= MIN_SUBSCRIBERS);
-
-console.log(`Channels with email (≥${MIN_SUBSCRIBERS / 1000}K subs): ${withEmail.length}`);
-
-// Deduplicate by email
-for (const ch of withEmail) {
-  const emails = ch.emails
-    .split(";")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const newEmails = emails.filter((e) => !seenEmails.has(e));
-
-  if (newEmails.length > 0) {
-    newEmails.forEach((e) => seenEmails.add(e));
-    // Use first new email as the primary contact
-    ch.primaryEmail = newEmails[0];
-    ch.score = scoreChannel(ch);
-    candidates.push(ch);
-  }
-}
-
-console.log(`Candidates after dedup: ${candidates.length}`);
-
-// Sort by score descending and take top MAX_EMAILS_PER_DAY
-candidates.sort((a, b) => b.score - a.score);
-const toSend = candidates.slice(0, MAX_EMAILS_PER_DAY);
-
-console.log(`Top candidates to email: ${toSend.length}\n`);
-
-if (toSend.length === 0) {
-  console.log("⚠️  No new channels to email today. Saving state.");
+// Check if queue has items to send
+if (emailQueue.length === 0) {
+  console.log("⚠️  Email queue is empty and no new candidates found. Saving state and exiting.");
   searchState.queryIndex = nextQueryIndex;
   searchState.lastRun = new Date().toISOString();
   writeFileSync("search_state.json", JSON.stringify(searchState, null, 2));
-  for (const id of allDiscoveredIds) knownChannelIds.add(id);
-  writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
-  console.log(`📝 Updated discovered_ids.json: ${knownChannelIds.size} IDs`);
+  writeFileSync("email_queue.json", JSON.stringify(emailQueue, null, 2));
   process.exit(0);
 }
+
+// Sort queue by score (highest first)
+emailQueue.sort((a, b) => b.score - a.score);
+
+// Take top items to send today
+const toSendToday = emailQueue.slice(0, MAX_EMAILS_PER_DAY);
+
+console.log(`=== STEP 4: Sending emails (${toSendToday.length} from queue) ===\n`);
 
 // Print candidates
 console.log("     Canal                                          Subs     Score  Email");
 console.log("     " + "─".repeat(95));
-for (let i = 0; i < toSend.length; i++) {
-  const ch = toSend[i];
-  const name = cleanName(ch.title);
+for (let i = 0; i < toSendToday.length; i++) {
+  const ch = toSendToday[i];
+  const name = ch.cleanName || cleanName(ch.title);
   const subs =
     ch.subscribers >= 1e6
       ? (ch.subscribers / 1e6).toFixed(1) + "M"
@@ -1070,9 +1126,7 @@ for (let i = 0; i < toSend.length; i++) {
   );
 }
 
-// ─── Step E: Send Emails via Resend ─────────────────────────────────────────
-
-console.log("\n=== STEP 4: Sending emails ===\n");
+console.log("");
 
 const newSendResults = [];
 let sentCount = 0;
@@ -1087,7 +1141,7 @@ function getSenderForNext() {
   return -1;
 }
 
-for (const ch of toSend) {
+for (const ch of toSendToday) {
   const senderIdx = getSenderForNext();
   if (senderIdx === -1) {
     console.log("⚠️  All senders at daily limit — stopping");
@@ -1095,7 +1149,7 @@ for (const ch of toSend) {
   }
 
   const senderEmail = SENDERS[senderIdx].email;
-  const name = cleanName(ch.title);
+  const name = ch.cleanName || cleanName(ch.title);
   const email = ch.primaryEmail;
 
   const htmlBody = `<p>Hola equipo de ${name},</p><p>Clipzi (https://clipzi.app/) convierte videos largos en clips para TikTok, Reels y Shorts. Suben el video, la IA encuentra los mejores momentos, y luego los ajustan en un editor visual.</p><p>Damos 2 videos gratis por mes para probar el flujo. Si después necesitan más uso o más funciones, hay planes pagos.</p><p>Si les interesa, podemos hacer algo específico para ${name}.</p><p>${SENDER_NAME}<br/>Co-founder &amp; CEO, Clipzi</p>`;
@@ -1167,16 +1221,26 @@ for (const ch of toSend) {
 
 console.log("\n=== STEP 5: Saving state ===\n");
 
+// Remove sent items from queue
+const sentIds = new Set(newSendResults.filter(r => r.status === "sent").map(r => r.channelId));
+// Also remove failed items from queue (don't retry broken emails)
+const attemptedIds = new Set(newSendResults.map(r => r.channelId));
+emailQueue = emailQueue.filter(item => !attemptedIds.has(item.channelId));
+
+// Save email queue
+writeFileSync("email_queue.json", JSON.stringify(emailQueue, null, 2));
+console.log(`📋 Updated email_queue.json: ${emailQueue.length} remaining`);
+
 // Append successful sends to send_results.json
 const successfulSends = newSendResults.filter((r) => r.status === "sent");
 const updatedSendResults = [...sendResults, ...successfulSends];
 writeFileSync("send_results.json", JSON.stringify(updatedSendResults, null, 2));
 console.log(`📝 Updated send_results.json: ${sendResults.length} → ${updatedSendResults.length} entries`);
 
-// Update discovered IDs cache (ALL channels we've ever seen)
-for (const id of allDiscoveredIds) knownChannelIds.add(id);
+// Update discovered IDs cache (if not already saved during search step)
+// This is a no-op if search ran (already saved above), but handles the skip-search case
 writeFileSync("discovered_ids.json", JSON.stringify([...knownChannelIds]));
-console.log(`📝 Updated discovered_ids.json: ${discoveredCache.length} → ${knownChannelIds.size} IDs`);
+console.log(`📝 Updated discovered_ids.json: ${knownChannelIds.size} IDs`);
 
 // Update search state
 searchState.queryIndex = nextQueryIndex;
@@ -1190,10 +1254,12 @@ console.log(`📝 Updated search_state.json: next query index = ${nextQueryIndex
 console.log("\n═══════════════════════════════════════════════════");
 console.log("  📊 DAILY OUTREACH SUMMARY");
 console.log("═══════════════════════════════════════════════════");
+console.log(`  📋 Queue before: ${queueBefore}`);
+console.log(`  📋 Queue after: ${emailQueue.length}`);
 console.log(`  🔍 Queries run: ${queriesToRun.length}`);
 console.log(`  📺 Channels discovered: ${discoveredChannelIds.size}`);
-console.log(`  📧 Channels with email: ${withEmail.length}`);
-console.log(`  🎯 Candidates (new, deduped): ${candidates.length}`);
+console.log(`  📧 Channels with email: ${withEmailCount}`);
+console.log(`  🎯 New candidates added to queue: ${candidatesCount}`);
 console.log(`  ✅ Emails sent: ${sentCount}`);
 console.log(`  ❌ Emails failed: ${failedCount}`);
 console.log(`  📊 Total emails all-time: ${updatedSendResults.length}`);
@@ -1228,9 +1294,12 @@ if (newSendResults.length > 0) {
   const reportHtml = `
     <h2>Clipzi Outreach Report — ${today}</h2>
     <p>
+      <strong>Queue before:</strong> ${queueBefore} |
+      <strong>Queue after:</strong> ${emailQueue.length} |
       <strong>Queries:</strong> ${queriesToRun.length} |
       <strong>Canales descubiertos:</strong> ${discoveredChannelIds.size} |
-      <strong>Con email:</strong> ${withEmail.length} |
+      <strong>Con email:</strong> ${withEmailCount} |
+      <strong>Nuevos en cola:</strong> ${candidatesCount} |
       <strong>Enviados:</strong> ${sentCount} |
       <strong>Fallidos:</strong> ${failedCount} |
       <strong>Total histórico:</strong> ${updatedSendResults.length}
