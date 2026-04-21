@@ -839,8 +839,21 @@ const discoveredChannelIds = new Set();
 let quotaUsed = 0;
 let quotaExceeded = false;
 
+// Reserve quota for channel detail fetches (Step 2)
+// Each detail batch = 1 unit per 50 channels. For ~10K channels = ~200 units.
+// Be conservative: reserve 2,000 units for details.
+const QUOTA_PER_KEY = 10_000;
+const TOTAL_QUOTA = YOUTUBE_API_KEYS.length * QUOTA_PER_KEY;
+const QUOTA_RESERVE_FOR_DETAILS = 2_000;
+const MAX_SEARCH_QUOTA = TOTAL_QUOTA - QUOTA_RESERVE_FOR_DETAILS;
+
+console.log(`  Quota budget: ${TOTAL_QUOTA} total, ${MAX_SEARCH_QUOTA} for search, ${QUOTA_RESERVE_FOR_DETAILS} reserved for details\n`);
+
 for (const query of queriesToRun) {
-  if (quotaExceeded) break;
+  if (quotaExceeded || quotaUsed >= MAX_SEARCH_QUOTA) {
+    if (quotaUsed >= MAX_SEARCH_QUOTA) console.log(`  ⏹️  Search quota budget reached (${quotaUsed}/${MAX_SEARCH_QUOTA}) — saving rest for details`);
+    break;
+  }
   
   let pageToken = "";
   let pageNum = 0;
