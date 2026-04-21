@@ -850,11 +850,23 @@ const TOTAL_QUOTA = YOUTUBE_API_KEYS.length * QUOTA_PER_KEY;
 const MAX_SEARCH_QUOTA = Math.floor(TOTAL_QUOTA * 0.7);
 const QUOTA_RESERVE_FOR_DETAILS = TOTAL_QUOTA - MAX_SEARCH_QUOTA;
 
-console.log(`  Quota budget: ${TOTAL_QUOTA} total, ${MAX_SEARCH_QUOTA} for search, ${QUOTA_RESERVE_FOR_DETAILS} reserved for details\n`);
+// Also: stop searching if we have enough channels already.
+// Details cost 1 unit per 50 channels. Even with 10K channels, details only cost 200 units.
+// The real constraint is finding NEW channels with emails, so more search = better.
+// But cap at a reasonable number to not waste quota if keys are partially used.
+const MAX_CHANNELS = 15_000;
+
+console.log(`  Quota budget: ${TOTAL_QUOTA} total, ${MAX_SEARCH_QUOTA} for search, ${QUOTA_RESERVE_FOR_DETAILS} reserved for details`);
+console.log(`  Max channels cap: ${MAX_CHANNELS}\n`);
 
 for (const query of queriesToRun) {
-  if (quotaExceeded || quotaUsed >= MAX_SEARCH_QUOTA) {
-    if (quotaUsed >= MAX_SEARCH_QUOTA) console.log(`  ⏹️  Search quota budget reached (${quotaUsed}/${MAX_SEARCH_QUOTA}) — saving rest for details`);
+  if (quotaExceeded) break;
+  if (quotaUsed >= MAX_SEARCH_QUOTA) {
+    console.log(`  ⏹️  Search quota budget reached (${quotaUsed}/${MAX_SEARCH_QUOTA}) — saving rest for details`);
+    break;
+  }
+  if (discoveredChannelIds.size >= MAX_CHANNELS) {
+    console.log(`  ⏹️  Channel cap reached (${discoveredChannelIds.size}/${MAX_CHANNELS}) — moving to details`);
     break;
   }
   
@@ -922,6 +934,11 @@ if (discoveredChannelIds.size === 0) {
 // ─── Step C: Fetch Channel Details ──────────────────────────────────────────
 
 console.log("=== STEP 2: Fetching channel details ===\n");
+
+// Reset quota state: try all keys again for details
+// Some keys might have been exhausted during search but others might still work
+quotaExceeded = false;
+currentKeyIndex = 0;
 
 const channelIdArray = [...discoveredChannelIds];
 const channels = [];
