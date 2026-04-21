@@ -17,8 +17,8 @@ const SENDER_NAME = process.env.SENDER_NAME;
 
 // Two sender emails: first 50 from clipzi.video, next 50 from clipzi.media
 const SENDERS = [
-  { email: process.env.SENDER_EMAIL, limit: 50 },
-  { email: process.env.SENDER_EMAIL_2, limit: 50 },
+  { email: process.env.SENDER_EMAIL, limit: 100 },
+  { email: process.env.SENDER_EMAIL_2, limit: 100 },
 ].filter(s => s.email);
 
 const MAX_EMAILS_PER_DAY = SENDERS.reduce((sum, s) => sum + s.limit, 0);
