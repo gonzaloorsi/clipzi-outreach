@@ -9,13 +9,19 @@ const YOUTUBE_API_KEYS = [
   process.env.YOUTUBE_API_KEY,
   process.env.YOUTUBE_API_KEY_2,
   process.env.YOUTUBE_API_KEY_3,
+  process.env.YOUTUBE_API_KEY_4,
 ].filter(Boolean);
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const SENDER_EMAIL = process.env.SENDER_EMAIL;
 const SENDER_NAME = process.env.SENDER_NAME;
 
-const MAX_EMAILS_PER_DAY = 100;
+// Two sender emails: first 50 from clipzi.video, next 50 from clipzi.media
+const SENDERS = [
+  { email: process.env.SENDER_EMAIL, limit: 50 },
+  { email: process.env.SENDER_EMAIL_2, limit: 50 },
+].filter(s => s.email);
+
+const MAX_EMAILS_PER_DAY = SENDERS.reduce((sum, s) => sum + s.limit, 0);
 const QUERIES_PER_RUN = 150;
 const SEND_DELAY_MS = 200;
 const MIN_SUBSCRIBERS = 10_000;
@@ -37,10 +43,11 @@ function switchToNextKey() {
 
 if (YOUTUBE_API_KEYS.length === 0) { console.error("❌ Missing YOUTUBE_API_KEY"); process.exit(1); }
 if (!RESEND_API_KEY) { console.error("❌ Missing RESEND_API_KEY"); process.exit(1); }
-if (!SENDER_EMAIL) { console.error("❌ Missing SENDER_EMAIL"); process.exit(1); }
+if (SENDERS.length === 0) { console.error("❌ Missing SENDER_EMAIL"); process.exit(1); }
 if (!SENDER_NAME) { console.error("❌ Missing SENDER_NAME"); process.exit(1); }
 
 console.log(`🔑 YouTube API keys loaded: ${YOUTUBE_API_KEYS.length}`);
+console.log(`📤 Senders: ${SENDERS.map(s => s.email + " (" + s.limit + "/day)").join(", ")}`);
 
 // ─── Search Query Pool (~200 unique queries) ────────────────────────────────
 // These are all NEW queries — not overlapping with fetch-channels.mjs,
@@ -631,11 +638,28 @@ const newSendResults = [];
 let sentCount = 0;
 let failedCount = 0;
 
+// Track sends per sender for rotation
+const senderSentCount = SENDERS.map(() => 0);
+
+function getSenderForNext() {
+  for (let i = 0; i < SENDERS.length; i++) {
+    if (senderSentCount[i] < SENDERS[i].limit) return i;
+  }
+  return -1; // all senders exhausted
+}
+
 for (const ch of toSend) {
+  const senderIdx = getSenderForNext();
+  if (senderIdx === -1) {
+    console.log("⚠️  All senders at daily limit — stopping");
+    break;
+  }
+
+  const senderEmail = SENDERS[senderIdx].email;
   const name = cleanName(ch.title);
   const email = ch.primaryEmail;
 
-  const htmlBody = `<p>Hola equipo de ${name},</p><p>Clipzi convierte videos largos en clips para TikTok, Reels y Shorts. Suben el video, la IA encuentra los mejores momentos, y luego los ajustan en un editor visual.</p><p>Damos 2 videos gratis por mes para probar el flujo. Si después necesitan más uso o más funciones, hay planes pagos.</p><p>Si les interesa, podemos hacer algo específico para ${name}.</p><p>${SENDER_NAME}<br/>Co-founder &amp; CEO, Clipzi</p>`;
+  const htmlBody = `<p>Hola equipo de ${name},</p><p>Clipzi (https://clipzi.app/) convierte videos largos en clips para TikTok, Reels y Shorts. Suben el video, la IA encuentra los mejores momentos, y luego los ajustan en un editor visual.</p><p>Damos 2 videos gratis por mes para probar el flujo. Si después necesitan más uso o más funciones, hay planes pagos.</p><p>Si les interesa, podemos hacer algo específico para ${name}.</p><p>${SENDER_NAME}<br/>Co-founder &amp; CEO, Clipzi</p>`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -645,7 +669,7 @@ for (const ch of toSend) {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+        from: `${SENDER_NAME} <${senderEmail}>`,
         to: [email],
         subject: `${name} x Clipzi`,
         html: htmlBody,
@@ -656,11 +680,13 @@ for (const ch of toSend) {
 
     if (res.ok) {
       sentCount++;
-      console.log(`✅ ${String(sentCount).padStart(3)}. ${name.padEnd(40)} → ${email}`);
+      senderSentCount[senderIdx]++;
+      console.log(`✅ ${String(sentCount).padStart(3)}. [${senderEmail}] ${name.padEnd(35)} → ${email}`);
       newSendResults.push({
         channel: ch.title,
         cleanName: name,
         email,
+        sentFrom: senderEmail,
         channelId: ch.channelId,
         subscribers: ch.subscribers,
         score: ch.score,
