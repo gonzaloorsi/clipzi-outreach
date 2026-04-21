@@ -15,7 +15,6 @@ const YOUTUBE_API_KEYS = [
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SENDER_NAME = process.env.SENDER_NAME;
 
-// Two sender emails: first 50 from clipzi.video, next 50 from clipzi.media
 const SENDERS = [
   { email: process.env.SENDER_EMAIL, limit: 100 },
   { email: process.env.SENDER_EMAIL_2, limit: 100 },
@@ -49,74 +48,250 @@ if (!SENDER_NAME) { console.error("❌ Missing SENDER_NAME"); process.exit(1); }
 console.log(`🔑 YouTube API keys loaded: ${YOUTUBE_API_KEYS.length}`);
 console.log(`📤 Senders: ${SENDERS.map(s => s.email + " (" + s.limit + "/day)").join(", ")}`);
 
-// ─── Topic × Country Search Grid ────────────────────────────────────────────
-// Instead of text queries, we systematically search by YouTube topic + country
+// ─── Search Query Pool (~200 unique queries) ────────────────────────────────
+// These are all NEW queries — not overlapping with fetch-channels.mjs,
+// scrape-channels.mjs, fetch-batch3.mjs, or fetch-batch4.mjs
+const QUERY_POOL = [
+  // ── Gaming (specific titles not covered before) ──
+  "canal español valorant gameplay",
+  "canal español gta roleplay",
+  "canal español league of legends lol",
+  "canal español free fire latino",
+  "canal español apex legends",
+  "canal español call of duty warzone español",
+  "canal español fifa ea fc 2024",
+  "canal español dead by daylight",
+  "canal español among us español",
+  "canal español horror game terror",
 
-const TOPICS = [
-  { id: "/m/04rlf", name: "Music" },
-  { id: "/m/02mscn", name: "Christian music" },
-  { id: "/m/0ggq0m", name: "Gaming" },
-  { id: "/m/06ntj", name: "Sports" },
-  { id: "/m/02wbm", name: "Food" },
-  { id: "/m/019_rr", name: "Lifestyle" },
-  { id: "/m/032tl", name: "Fashion" },
-  { id: "/m/027x7n", name: "Fitness" },
-  { id: "/m/07c1v", name: "Technology" },
-  { id: "/m/09s1f", name: "Business" },
-  { id: "/m/01k8wb", name: "Knowledge" },
-  { id: "/m/0kt51", name: "Comedy" },
-  { id: "/m/02jjt", name: "Entertainment" },
-  { id: "/m/07bxq", name: "Tourism" },
-  { id: "/m/0jm_", name: "Education" },
-  { id: "/m/098wr", name: "Society" },
-  { id: "/m/01h7lh", name: "Pets & Animals" },
-  { id: "/m/068hy", name: "Pets" },
-  { id: "/m/041xxh", name: "Beauty" },
-  { id: "/m/03glg", name: "Hobby" },
-  { id: "/m/0bzvm2", name: "Gaming hardware" },
-  { id: "/m/02ntfj", name: "Film" },
-  { id: "/m/06bvp", name: "Religion" },
-  { id: "/m/01ly5m", name: "Health" },
-  { id: "/m/0f2f9", name: "Vehicles" },
-  { id: "/m/0k4j", name: "Cars" },
-  { id: "/m/01jdpf", name: "Motorcycles" },
-  { id: "/m/025zzc", name: "Action games" },
-  { id: "/m/02mjmr", name: "Role-playing games" },
-  { id: "/m/0403l", name: "Home & Garden" },
+  // ── Specific sports (not in previous batches) ──
+  "canal youtube padel español",
+  "canal youtube natación swimming español",
+  "canal youtube volleyball voley español",
+  "canal youtube rugby latino",
+  "canal youtube rally motocross español",
+  "canal youtube lucha wrestling español",
+  "canal youtube skateboard patineta español",
+  "canal youtube artes marciales karate español",
+  "canal youtube polo caballo argentino",
+  "canal youtube atletismo correr español",
+
+  // ── Music sub-genres ──
+  "canal youtube cumbia argentina villera",
+  "canal youtube salsa bachata latino",
+  "canal youtube trap latino artista",
+  "canal youtube flamenco guitarra español",
+  "canal youtube metal rock pesado español",
+  "canal youtube folklore folclore argentino",
+  "canal youtube pop latino cantante",
+  "canal youtube hip hop rap latino",
+  "canal youtube instrumental lofi español",
+  "canal youtube reggae ska latino",
+
+  // ── Education (specific subjects) ──
+  "canal youtube química ciencias español",
+  "canal youtube biología naturales español",
+  "canal youtube programación python español",
+  "canal youtube inteligencia artificial AI español",
+  "canal youtube geografía mapas español",
+  "canal youtube astronomía espacio universo español",
+  "canal youtube contabilidad contaduría español",
+  "canal youtube derecho leyes estudiar español",
+  "canal youtube economía macro micro español",
+  "canal youtube literatura libros español",
+
+  // ── Professional/career channels ──
+  "canal youtube ingeniero ingeniería español",
+  "canal youtube dentista odontología español",
+  "canal youtube veterinario animales español",
+  "canal youtube nutriólogo alimentación español",
+  "canal youtube fisioterapeuta rehabilitación español",
+  "canal youtube farmacia farmacéutico español",
+  "canal youtube enfermero enfermería español",
+  "canal youtube contador impuestos español",
+  "canal youtube profesor maestro educación español",
+  "canal youtube bombero rescate emergencia español",
+
+  // ── Country-specific (not yet used) ──
+  "youtuber boliviano bolivia canal",
+  "youtuber paraguayo paraguay canal",
+  "youtuber salvadoreño el salvador canal",
+  "youtuber hondureño honduras canal",
+  "youtuber guatemalteco guatemala canal",
+  "youtuber panameño panama canal",
+  "youtuber costarricense costa rica canal",
+  "youtuber nicaragüense nicaragua canal",
+  "youtuber cubano cuba canal",
+  "youtuber puertorriqueño puerto rico canal",
+
+  // ── City-specific ──
+  "canal youtube guadalajara jalisco",
+  "canal youtube monterrey nuevo leon",
+  "canal youtube bogotá colombia creador",
+  "canal youtube medellín antioquia",
+  "canal youtube lima perú creador",
+  "canal youtube santiago chile creador",
+  "canal youtube madrid españa creador",
+  "canal youtube barcelona españa creador",
+  "canal youtube buenos aires ciudad creador",
+  "canal youtube quito ecuador creador",
+
+  // ── Food & Drink specifics ──
+  "canal youtube asado parrilla carne español",
+  "canal youtube vino sommelier cata español",
+  "canal youtube cerveza artesanal craft español",
+  "canal youtube sushi comida japonesa español",
+  "canal youtube comida vegana vegetariana español",
+  "canal youtube pastelería tortas decoración español",
+  "canal youtube comida callejera street food latino",
+  "canal youtube comida mexicana tacos español",
+  "canal youtube comida peruana ceviche",
+  "canal youtube mate yerba argentina",
+
+  // ── Tech specifics (not covered) ──
+  "canal youtube smartphone celular review español",
+  "canal youtube apple iphone mac español",
+  "canal youtube samsung galaxy android español",
+  "canal youtube laptop notebook review español",
+  "canal youtube apps aplicaciones móvil español",
+  "canal youtube software programas gratis español",
+  "canal youtube ciberseguridad hacking ético español",
+  "canal youtube linux ubuntu código abierto español",
+  "canal youtube domótica smart home español",
+  "canal youtube inteligencia artificial chatgpt español",
+
+  // ── Family & Parenting ──
+  "canal youtube maternidad mamá embarazo español",
+  "canal youtube paternidad papá bebé español",
+  "canal youtube familia numerosa hijos español",
+  "canal youtube homeschooling educación casa español",
+  "canal youtube juguetes niños español latino",
+  "canal youtube adolescentes jóvenes español",
+  "canal youtube crianza respetuosa español",
+  "canal youtube recetas niños familia español",
+  "canal youtube actividades infantiles manualidades español",
+  "canal youtube gemelos mellizos familia español",
+
+  // ── Finance/Business (specific sub-niches) ──
+  "canal youtube trading forex español",
+  "canal youtube ahorro dinero finanzas español",
+  "canal youtube jubilación retiro pensión español",
+  "canal youtube presupuesto deudas español",
+  "canal youtube negocio online ganar dinero español",
+  "canal youtube empleo trabajo freelance español",
+  "canal youtube bienes raíces rentar español",
+  "canal youtube impuestos sat declaración español",
+  "canal youtube economía familiar ahorro español",
+  "canal youtube startup venture capital español",
+
+  // ── Film/TV/Entertainment ──
+  "canal youtube series netflix recomendación español",
+  "canal youtube terror horror película español",
+  "canal youtube ciencia ficción movie español",
+  "canal youtube anime otaku japonés español",
+  "canal youtube webtoon manhwa manga español",
+  "canal youtube k-pop kpop coreano español",
+  "canal youtube k-drama doramas español",
+  "canal youtube superhéroes marvel dc español",
+  "canal youtube star wars universo español",
+  "canal youtube cómics historietas español",
+
+  // ── Social Media & Creator Economy ──
+  "canal youtube crecer tiktok seguidores español",
+  "canal youtube instagram reels estrategia español",
+  "canal youtube monetizar youtube adsense español",
+  "canal youtube editar videos celular español",
+  "canal youtube thumbnail miniatura youtube español",
+  "canal youtube seo youtube posicionamiento español",
+  "canal youtube streaming obs setup español",
+  "canal youtube contenido viral tips español",
+  "canal youtube marca personal branding español",
+  "canal youtube influencer marketing español",
+
+  // ── Cars/Vehicles (specific) ──
+  "canal youtube tuning modificación autos español",
+  "canal youtube drift carreras español",
+  "canal youtube fórmula 1 f1 español",
+  "canal youtube mecánica automotriz taller español",
+  "canal youtube motos chopper custom español",
+  "canal youtube camiones truck español",
+  "canal youtube autos clásicos restauración español",
+  "canal youtube eléctricos tesla ev español",
+  "canal youtube karting go kart español",
+  "canal youtube tractores maquinaria agrícola español",
+
+  // ── Home & Lifestyle ──
+  "canal youtube organización minimalismo casa español",
+  "canal youtube tiny house pequeña casa español",
+  "canal youtube departamento decorar pequeño español",
+  "canal youtube mudanza primer depto español",
+  "canal youtube limpieza orden hogar español",
+  "canal youtube reciclaje upcycling español",
+  "canal youtube huerto urbano terraza español",
+  "canal youtube feng shui casa energía español",
+  "canal youtube roomtour casa tour español",
+  "canal youtube renovación pintura pared español",
+
+  // ── Wellness & Alternative ──
+  "canal youtube meditación mindfulness calma español",
+  "canal youtube reiki energía sanación español",
+  "canal youtube herbología plantas medicinales español",
+  "canal youtube aceites esenciales aromaterapia español",
+  "canal youtube ayurveda natural bienestar español",
+  "canal youtube pilates stretching flexibilidad español",
+  "canal youtube running trail senderismo español",
+  "canal youtube dieta keto intermitente español",
+  "canal youtube salud dental cuidado español",
+  "canal youtube dermatología skincare piel español",
+
+  // ── Formats (specific video styles) ──
+  "canal youtube mukbang comida español",
+  "canal youtube haul compras ropa español",
+  "canal youtube grwm arréglate conmigo español",
+  "canal youtube challenge reto viral español",
+  "canal youtube prank broma cámara oculta español",
+  "canal youtube speedrun gaming español",
+  "canal youtube tier list ranking español",
+  "canal youtube unboxing coleccionable español",
+  "canal youtube compilación mejores momentos español",
+  "canal youtube directo live en vivo español",
+
+  // ── Niche hobbies ──
+  "canal youtube lego construcción colección español",
+  "canal youtube modelismo maqueta escala español",
+  "canal youtube astronomía telescopio español",
+  "canal youtube camping acampar naturaleza español",
+  "canal youtube supervivencia bushcraft español",
+  "canal youtube numismática monedas colección español",
+  "canal youtube origami papel manualidad español",
+  "canal youtube magia trucos ilusionismo español",
+  "canal youtube aeromodelismo aviones rc español",
+  "canal youtube acuarismo peces tropicales español",
+
+  // ── Regional media & entertainment ──
+  "canal youtube telenovela novela latino",
+  "canal youtube radio programa locutor español",
+  "canal youtube crónica barrio urbano latino",
+  "canal youtube carnaval fiesta tradición latino",
+  "canal youtube folklore danza típica latino",
+  "canal youtube gastronomía regional pueblos español",
+  "canal youtube mercado tianguis feria latino",
+  "canal youtube fútbol femenil mujeres español",
+  "canal youtube esports competitivo latino",
+  "canal youtube beatbox freestyle competencia español",
+
+  // ── Additional diverse niches ──
+  "canal youtube astronomía planetario nasa español",
+  "canal youtube robótica arduino raspberry español",
+  "canal youtube empanadas comida típica latino",
+  "canal youtube misterio leyendas urbanas español",
+  "canal youtube inversiones acciones bolsa español",
+  "canal youtube retro vintage nostalgia español",
+  "canal youtube rap batalla gallos español",
+  "canal youtube cine independiente corto español",
+  "canal youtube diseño web freelancer español",
+  "canal youtube educación financiera jóvenes español",
 ];
-
-const COUNTRIES = [
-  { code: "AR", name: "Argentina" },
-  { code: "MX", name: "México" },
-  { code: "CO", name: "Colombia" },
-  { code: "CL", name: "Chile" },
-  { code: "PE", name: "Perú" },
-  { code: "ES", name: "España" },
-  { code: "EC", name: "Ecuador" },
-  { code: "UY", name: "Uruguay" },
-  { code: "VE", name: "Venezuela" },
-  { code: "BO", name: "Bolivia" },
-  { code: "PY", name: "Paraguay" },
-  { code: "DO", name: "Rep. Dominicana" },
-  { code: "GT", name: "Guatemala" },
-  { code: "CR", name: "Costa Rica" },
-  { code: "PA", name: "Panamá" },
-  { code: "HN", name: "Honduras" },
-  { code: "SV", name: "El Salvador" },
-  { code: "NI", name: "Nicaragua" },
-  { code: "CU", name: "Cuba" },
-  { code: "PR", name: "Puerto Rico" },
-];
-
-// Build all combinations: 30 topics × 20 countries = 600 combos
-const ALL_COMBOS = [];
-for (const topic of TOPICS) {
-  for (const country of COUNTRIES) {
-    ALL_COMBOS.push({ topicId: topic.id, topicName: topic.name, regionCode: country.code, countryName: country.name });
-  }
-}
-
-console.log(`📋 Search grid: ${TOPICS.length} topics × ${COUNTRIES.length} countries = ${ALL_COMBOS.length} combinations`);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -277,37 +452,34 @@ try {
 
 // ─── Step B: Search YouTube ─────────────────────────────────────────────────
 
-console.log("=== STEP 1: Searching YouTube (topics × countries) ===\n");
+console.log("=== STEP 1: Searching YouTube ===\n");
 
-// Pick next batch of combos (rotating through grid)
-let startIdx = searchState.queryIndex % ALL_COMBOS.length;
-const combosToRun = [];
+// Pick next batch of queries (rotating through pool)
+let startIdx = searchState.queryIndex % QUERY_POOL.length;
+const queriesToRun = [];
 for (let i = 0; i < QUERIES_PER_RUN; i++) {
-  combosToRun.push(ALL_COMBOS[(startIdx + i) % ALL_COMBOS.length]);
+  queriesToRun.push(QUERY_POOL[(startIdx + i) % QUERY_POOL.length]);
 }
-const nextQueryIndex = (startIdx + QUERIES_PER_RUN) % ALL_COMBOS.length;
+const nextQueryIndex = (startIdx + QUERIES_PER_RUN) % QUERY_POOL.length;
 
-console.log(`Running combos ${startIdx} to ${startIdx + QUERIES_PER_RUN - 1} (of ${ALL_COMBOS.length} total)\n`);
+console.log(`Running queries ${startIdx} to ${startIdx + QUERIES_PER_RUN - 1} (of ${QUERY_POOL.length} total)\n`);
 
 const discoveredChannelIds = new Set();
 let quotaUsed = 0;
 let quotaExceeded = false;
-let combosRun = 0;
 
-for (const combo of combosToRun) {
+for (const query of queriesToRun) {
   if (quotaExceeded) break;
 
   try {
     const data = await ytGet("search", {
       part: "snippet",
+      q: query,
       type: "channel",
-      topicId: combo.topicId,
-      regionCode: combo.regionCode,
       maxResults: "50",
       relevanceLanguage: "es",
     });
     quotaUsed += 100;
-    combosRun++;
 
     for (const item of data.items || []) {
       const channelId = item.snippet?.channelId || item.id?.channelId;
@@ -316,22 +488,21 @@ for (const combo of combosToRun) {
       }
     }
     console.log(
-      `  ✅ ${combo.topicName.padEnd(20)} × ${combo.countryName.padEnd(15)} → ${(data.items || []).length} results (unique: ${discoveredChannelIds.size})`
+      `  ✅ "${query}" → ${(data.items || []).length} results (total unique: ${discoveredChannelIds.size})`
     );
   } catch (e) {
     if (e.message === "QUOTA_EXCEEDED") {
-      console.log(`  ⚠️  Quota exceeded at ${combo.topicName} × ${combo.countryName} — stopping`);
+      console.log(`  ⚠️  Quota exceeded at "${query}" — stopping searches`);
       quotaExceeded = true;
     } else {
-      console.log(`  ❌ Error for ${combo.topicName} × ${combo.countryName}: ${e.message}`);
+      console.log(`  ❌ Error for "${query}": ${e.message}`);
     }
   }
 
   await sleep(100);
 }
 
-console.log(`\nCombos run: ${combosRun}/${combosToRun.length}`);
-console.log(`Total unique channel IDs discovered: ${discoveredChannelIds.size}`);
+console.log(`\nTotal unique channel IDs discovered: ${discoveredChannelIds.size}`);
 console.log(`Quota used on searches: ~${quotaUsed} units\n`);
 
 if (discoveredChannelIds.size === 0) {
@@ -466,14 +637,13 @@ const newSendResults = [];
 let sentCount = 0;
 let failedCount = 0;
 
-// Track sends per sender for rotation
 const senderSentCount = SENDERS.map(() => 0);
 
 function getSenderForNext() {
   for (let i = 0; i < SENDERS.length; i++) {
     if (senderSentCount[i] < SENDERS[i].limit) return i;
   }
-  return -1; // all senders exhausted
+  return -1;
 }
 
 for (const ch of toSend) {
@@ -574,7 +744,7 @@ console.log(`📝 Updated search_state.json: next query index = ${nextQueryIndex
 console.log("\n═══════════════════════════════════════════════════");
 console.log("  📊 DAILY OUTREACH SUMMARY");
 console.log("═══════════════════════════════════════════════════");
-console.log(`  🔍 Combos run: ${combosRun}`);
+console.log(`  🔍 Queries run: ${queriesToRun.length}`);
 console.log(`  📺 Channels discovered: ${discoveredChannelIds.size}`);
 console.log(`  📧 Channels with email: ${withEmail.length}`);
 console.log(`  🎯 Candidates (new, deduped): ${candidates.length}`);
@@ -612,7 +782,7 @@ if (newSendResults.length > 0) {
   const reportHtml = `
     <h2>Clipzi Outreach Report — ${today}</h2>
     <p>
-      <strong>Combos:</strong> ${combosRun} |
+      <strong>Queries:</strong> ${queriesToRun.length} |
       <strong>Canales descubiertos:</strong> ${discoveredChannelIds.size} |
       <strong>Con email:</strong> ${withEmail.length} |
       <strong>Enviados:</strong> ${sentCount} |
@@ -641,7 +811,7 @@ if (newSendResults.length > 0) {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: `Clipzi Outreach Bot <${SENDER_EMAIL}>`,
+        from: `Clipzi Outreach Bot <${SENDERS[0].email}>`,
         to: ["gonzaloorsi@gmail.com"],
         subject: `Outreach Report ${today} — ${sentCount} enviados, ${updatedSendResults.length} total`,
         html: reportHtml,
