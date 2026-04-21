@@ -10,6 +10,7 @@ const YOUTUBE_API_KEYS = [
   process.env.YOUTUBE_API_KEY_2,
   process.env.YOUTUBE_API_KEY_3,
   process.env.YOUTUBE_API_KEY_4,
+  process.env.YOUTUBE_API_KEY_5,
 ].filter(Boolean);
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
