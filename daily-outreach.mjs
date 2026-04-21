@@ -840,12 +840,14 @@ let quotaUsed = 0;
 let quotaExceeded = false;
 
 // Reserve quota for channel detail fetches (Step 2)
-// Each detail batch = 1 unit per 50 channels. For ~10K channels = ~200 units.
-// Be conservative: reserve 2,000 units for details.
+// Each search page = 100 units. Each detail batch (50 channels) = 1 unit.
+// Split budget 70/30: 70% for search, 30% for details.
+// With 4 keys = 40K total: 28K search + 12K details (enough for 600K channels)
+// Even if keys are partially used, 30% reserve is safe.
 const QUOTA_PER_KEY = 10_000;
 const TOTAL_QUOTA = YOUTUBE_API_KEYS.length * QUOTA_PER_KEY;
-const QUOTA_RESERVE_FOR_DETAILS = 2_000;
-const MAX_SEARCH_QUOTA = TOTAL_QUOTA - QUOTA_RESERVE_FOR_DETAILS;
+const MAX_SEARCH_QUOTA = Math.floor(TOTAL_QUOTA * 0.7);
+const QUOTA_RESERVE_FOR_DETAILS = TOTAL_QUOTA - MAX_SEARCH_QUOTA;
 
 console.log(`  Quota budget: ${TOTAL_QUOTA} total, ${MAX_SEARCH_QUOTA} for search, ${QUOTA_RESERVE_FOR_DETAILS} reserved for details\n`);
 
