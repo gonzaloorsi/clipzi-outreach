@@ -23,7 +23,7 @@ const SENDERS = [
 const MAX_EMAILS_PER_DAY = SENDERS.reduce((sum, s) => sum + s.limit, 0);
 const QUERIES_PER_RUN = 150;
 const SEND_DELAY_MS = 200;
-const MIN_SUBSCRIBERS = 10_000;
+const MIN_SUBSCRIBERS = 7_000;
 
 let currentKeyIndex = 0;
 
@@ -291,6 +291,377 @@ const QUERY_POOL = [
   "canal youtube cine independiente corto español",
   "canal youtube diseño web freelancer español",
   "canal youtube educación financiera jóvenes español",
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NEW QUERIES (300+) — Added to expand discovery pool to 500+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Country + Niche combos: Argentina ──
+  "youtuber argentino fitness",
+  "youtuber argentino cocina recetas",
+  "youtuber argentino gaming",
+  "youtuber argentino comedia humor",
+  "youtuber argentino viajes turismo",
+  "youtuber argentino tecnología review",
+  "youtuber argentino música cantante",
+  "youtuber argentino moda fashion",
+  "youtuber argentino finanzas inversiones",
+  "youtuber argentino educación ciencia",
+
+  // ── Country + Niche combos: México ──
+  "youtuber mexicano fitness gym",
+  "youtuber mexicano cocina comida",
+  "youtuber mexicano gaming videojuegos",
+  "youtuber mexicano comedia sketches",
+  "youtuber mexicano viajes turismo",
+  "youtuber mexicano tecnología gadgets",
+  "youtuber mexicano música banda",
+  "youtuber mexicano moda belleza",
+  "youtuber mexicano negocios emprendimiento",
+  "youtuber mexicano educación tutorial",
+
+  // ── Country + Niche combos: Colombia ──
+  "youtuber colombiano fitness ejercicio",
+  "youtuber colombiano cocina colombiana",
+  "youtuber colombiano gaming streaming",
+  "youtuber colombiano comedia parodia",
+  "youtuber colombiano viajes aventura",
+  "youtuber colombiano tecnología celulares",
+  "youtuber colombiano música reggaeton",
+  "youtuber colombiano moda tendencias",
+  "youtuber colombiano negocios dinero",
+  "youtuber colombiano educación ciencias",
+
+  // ── Country + Niche combos: Chile ──
+  "youtuber chileno fitness deporte",
+  "youtuber chileno cocina receta chilena",
+  "youtuber chileno gaming minecraft",
+  "youtuber chileno comedia standup",
+  "youtuber chileno viajes mochilero",
+  "youtuber chileno tecnología unboxing",
+  "youtuber chileno música rap",
+  "youtuber chileno moda streetwear",
+  "youtuber chileno finanzas ahorro",
+  "youtuber chileno ciencia divulgación",
+
+  // ── Country + Niche combos: Perú ──
+  "youtuber peruano fitness crossfit",
+  "youtuber peruano cocina peruana ceviche",
+  "youtuber peruano gaming fortnite",
+  "youtuber peruano comedia imitación",
+  "youtuber peruano viajes perú turismo",
+  "youtuber peruano tecnología review",
+  "youtuber peruano música criolla",
+  "youtuber peruano emprendimiento negocio",
+  "youtuber peruano educación mate",
+  "youtuber peruano historia cultura",
+
+  // ── Country + Niche combos: España ──
+  "youtuber español fitness rutina",
+  "youtuber español cocina española",
+  "youtuber español gaming ps5 xbox",
+  "youtuber español comedia monólogo",
+  "youtuber español viajes europa",
+  "youtuber español tecnología apple android",
+  "youtuber español música indie",
+  "youtuber español moda hombre",
+  "youtuber español finanzas criptomonedas",
+  "youtuber español ciencia curiosidades",
+
+  // ── Country + Niche combos: Venezuela ──
+  "youtuber venezolano en españa",
+  "youtuber venezolano comida venezolana",
+  "youtuber venezolano gaming roblox",
+  "youtuber venezolano comedia venezolana",
+  "youtuber venezolano emprendimiento",
+
+  // ── Country + Niche combos: Ecuador / Uruguay ──
+  "youtuber ecuatoriano ecuador contenido",
+  "youtuber uruguayo uruguay canal",
+  "youtuber dominicano república dominicana",
+  "creador contenido centroamérica youtube",
+  "youtuber caribeño latino canal",
+
+  // ── Specific sub-niches not previously covered ──
+  "canal español tarot lectura cartas",
+  "canal español astrología horóscopo signos",
+  "canal español crochet tejido ganchillo",
+  "canal español guitarra tutorial principiante",
+  "canal español piano tutorial clases",
+  "canal español batería drums tutorial español",
+  "canal español bajo eléctrico bass español",
+  "canal español ukulele tutorial español",
+  "canal español violín tutorial clásico español",
+  "canal español producción musical beat español",
+  "canal español cerámica alfarería barro",
+  "canal español carpintería madera proyectos",
+  "canal español soldadura metalurgia taller",
+  "canal español joyería bisutería artesanal",
+  "canal español bordado punto cruz costura",
+
+  // ── Regional / City variations ──
+  "creador contenido Rosario Argentina youtube",
+  "youtuber Córdoba Argentina canal",
+  "youtuber Cancún México canal",
+  "youtuber Puebla México contenido",
+  "youtuber Cali Colombia canal",
+  "youtuber Barranquilla Colombia creador",
+  "youtuber Arequipa Perú canal",
+  "youtuber Valparaíso Chile creador",
+  "youtuber Sevilla España canal",
+  "youtuber Valencia España contenido",
+  "youtuber Bilbao País Vasco canal",
+  "youtuber Málaga España creador",
+  "youtuber Quito Ecuador creador contenido",
+  "youtuber Guayaquil Ecuador canal",
+  "youtuber Montevideo Uruguay creador",
+  "youtuber Asunción Paraguay canal",
+  "youtuber La Paz Bolivia creador",
+  "youtuber San José Costa Rica canal",
+  "youtuber Santo Domingo República Dominicana",
+  "youtuber Panamá City creador contenido",
+
+  // ── Podcast variations ──
+  "podcast español true crime crimen",
+  "podcast español comedia humor risas",
+  "podcast español negocios emprendimiento",
+  "podcast español psicología salud mental",
+  "podcast español historia relatos",
+  "podcast español ciencia tecnología",
+  "podcast español entrevistas famosos",
+  "podcast español desarrollo personal",
+  "podcast español política actualidad",
+  "podcast español deportes fútbol",
+  "podcast español terror misterio",
+  "podcast español feminismo género",
+  "podcast español filosofía pensamiento",
+  "podcast español música artistas",
+  "podcast latino spotify youtube",
+
+  // ── Platform crossover terms ──
+  "tiktoker español youtube canal",
+  "tiktoker latino youtube videos",
+  "streamer español youtube twitch",
+  "streamer latino youtube gaming",
+  "instagramer español youtube canal",
+  "instagramer latino contenido youtube",
+  "influencer español tiktok youtube",
+  "influencer latino redes sociales youtube",
+  "creador contenido digital español youtube",
+  "creador contenido digital latino youtube",
+
+  // ── Year-specific queries ──
+  "nuevo canal youtube español 2024",
+  "nuevo canal youtube latino 2024",
+  "youtuber nuevo español 2025",
+  "youtuber nuevo latino 2025",
+  "canales youtube español tendencia 2024",
+  "canales youtube español creciendo 2025",
+  "mejores canales youtube español nuevos 2024",
+  "youtubers emergentes español 2024",
+  "youtubers emergentes latino 2025",
+  "nuevo youtuber hispano 2024",
+
+  // ── Size-specific queries ──
+  "canal youtube español pequeño creciendo",
+  "canal youtube latino pequeño emergente",
+  "youtuber emergente latino suscriptores",
+  "youtuber emergente español nuevo",
+  "canal youtube español underrated infravalorado",
+  "canal youtube español poco conocido recomendado",
+  "youtuber español menos de 100k suscriptores",
+  "youtuber latino menos de 50k suscriptores",
+  "canal youtube español oculto joya escondida",
+  "youtuber hispano promesa talento",
+
+  // ── Language-learning specific ──
+  "aprender español youtube canal",
+  "español para extranjeros youtube clases",
+  "learn spanish youtube channel",
+  "spanish teacher youtube lessons",
+  "profesor español youtube lecciones",
+  "spanish language learning youtube",
+  "español para principiantes youtube",
+  "hablar español youtube tutorial",
+  "gramática español youtube clase",
+  "vocabulario español youtube aprender",
+
+  // ── DIY & Crafts expanded ──
+  "canal español DIY hazlo tú mismo proyectos",
+  "canal español manualidades papel cartón",
+  "canal español pintura óleo acrílico arte",
+  "canal español dibujo ilustración digital",
+  "canal español lettering caligrafía tipografía",
+  "canal español resina epoxi manualidades",
+  "canal español macramé nudos decoración",
+  "canal español scrapbooking álbum recuerdos",
+  "canal español velas artesanales jabones",
+  "canal español impresión 3D maker español",
+
+  // ── Photography & Video expanded ──
+  "canal español fotografía paisaje retrato",
+  "canal español edición photoshop lightroom",
+  "canal español filmmaking cortometraje cine",
+  "canal español drone dron aéreo fpv",
+  "canal español cámara Sony Canon Nikon review",
+  "canal español cinematografía color grading",
+  "canal español video boda evento producción",
+  "canal español fotografía celular smartphone",
+  "canal español timelapse hyperlapse video",
+  "canal español after effects motion graphics",
+
+  // ── Pets & Animals expanded ──
+  "canal español perros adiestramiento canino",
+  "canal español gatos cuidado felino",
+  "canal español acuario pecera peces tropical",
+  "canal español aves pájaros loros canarios",
+  "canal español reptiles serpientes lagartos",
+  "canal español caballos equitación hípica",
+  "canal español granja animales campo rural",
+  "canal español veterinaria cuidado mascota",
+  "canal español hamster roedores conejos",
+  "canal español insectos entomología bichos",
+
+  // ── Real estate & Architecture ──
+  "canal español arquitectura diseño casas",
+  "canal español construcción obra albañilería",
+  "canal español plomería fontanería electricidad",
+  "canal español remodelación antes después casa",
+  "canal español container house casa contenedor",
+
+  // ── Niche sports & activities ──
+  "canal español escalada bouldering climbing",
+  "canal español ciclismo bicicleta mtb ruta",
+  "canal español pesca fishing deportiva",
+  "canal español buceo diving submarinismo",
+  "canal español kayak canoa rafting",
+  "canal español golf swing tutorial",
+  "canal español tiro arco archery",
+  "canal español parkour freerunning",
+  "canal español patinaje artístico hielo",
+  "canal español triatlón ironman natación",
+
+  // ── Mental health & Self-improvement ──
+  "canal español psicología terapia ansiedad",
+  "canal español desarrollo personal autoayuda",
+  "canal español productividad organización tiempo",
+  "canal español hábitos disciplina motivación",
+  "canal español inteligencia emocional relaciones",
+  "canal español estoicismo filosofía vida",
+  "canal español coaching vida profesional",
+  "canal español bienestar equilibrio vida",
+  "canal español superación personal éxito",
+  "canal español comunicación oratoria hablar público",
+
+  // ── Science & History expanded ──
+  "canal español paleontología dinosaurios fósiles",
+  "canal español física cuántica relatividad",
+  "canal español matemáticas paradojas curiosidades",
+  "canal español neurociencia cerebro mente",
+  "canal español historia antigua roma grecia",
+  "canal español historia medieval castillos",
+  "canal español mitología dioses leyendas",
+  "canal español arqueología descubrimientos",
+  "canal español vulcanología volcanes geología",
+  "canal español oceanografía mar océano",
+
+  // ── Fashion & Beauty expanded ──
+  "canal español maquillaje natural tutorial",
+  "canal español cuidado cabello peinados",
+  "canal español skincare rutina coreana",
+  "canal español uñas nail art manicura",
+  "canal español moda sostenible slow fashion",
+  "canal español barbería corte cabello hombre",
+  "canal español perfumes fragancias reseña",
+  "canal español estilo ropa outfit ideas",
+  "canal español segunda mano thrift vintage ropa",
+  "canal español moda tallas grandes curvy",
+
+  // ── Paranormal & Mystery expanded ──
+  "canal español ovnis ufología extraterrestres",
+  "canal español conspiraciones teorías secretos",
+  "canal español casos criminales sin resolver",
+  "canal español fantasmas paranormal evidencia",
+  "canal español lugares abandonados urbex exploración",
+  "canal español criptozoología criaturas monstruos",
+  "canal español enigmas mundo misterios antiguos",
+  "canal español documentales misterio investigación",
+  "canal español true crime español casos reales",
+  "canal español leyendas mitos folklore terror",
+
+  // ── Board games & Tabletop ──
+  "canal español juegos mesa board games",
+  "canal español dungeons dragons rol mesa",
+  "canal español cartas magic pokemon tcg",
+  "canal español warhammer miniaturas pintura",
+  "canal español ajedrez estrategia partidas",
+
+  // ── Cooking sub-niches expanded ──
+  "canal español repostería postres dulces",
+  "canal español pan artesanal panadería masa madre",
+  "canal español comida saludable meal prep",
+  "canal español recetas rápidas fáciles 15 minutos",
+  "canal español barbacoa bbq ahumado",
+  "canal español fermentación kombucha kimchi",
+  "canal español chocolate bombones temperado",
+  "canal español cocina italiana pasta pizza",
+  "canal español cocina asiática wok sushi",
+  "canal español coctelería bartender tragos",
+
+  // ── Automotive sub-niches expanded ──
+  "canal español detailing lavado auto",
+  "canal español 4x4 offroad todoterreno",
+  "canal español scooter moto eléctrica movilidad",
+  "canal español autocaravana vanlife camper",
+  "canal español accidentes tráfico dashcam",
+
+  // ── General discovery terms (broad net) ──
+  "mejores youtubers hispanos recomendados",
+  "youtubers latinos que deberías conocer",
+  "canales youtube español imperdibles",
+  "youtubers en español que no conocías",
+  "canales youtube español calidad contenido",
+  "top youtubers habla hispana",
+  "youtubers latinos recomendación canal",
+  "creadores youtube español favoritos",
+  "canales español youtube recomendados 2024",
+  "youtubers hispanohablantes populares",
+
+  // ── Education specific subjects expanded ──
+  "canal español programación javascript web",
+  "canal español desarrollo móvil android ios",
+  "canal español data science machine learning español",
+  "canal español cloud computing AWS Azure español",
+  "canal español excel avanzado macros office",
+  "canal español diseño gráfico illustrator español",
+  "canal español marketing digital seo sem",
+  "canal español copywriting redacción ventas",
+  "canal español ecommerce tienda online dropshipping",
+  "canal español wordpress crear página web",
+
+  // ── Travel sub-niches ──
+  "canal español mochilero viaje barato",
+  "canal español viaje pareja luna miel",
+  "canal español viaje solo mujer seguridad",
+  "canal español viaje sudamérica ruta",
+  "canal español viaje centroamérica backpacking",
+  "canal español viaje españa pueblos rurales",
+  "canal español nómada digital trabajar viajando",
+  "canal español camino santiago peregrino",
+  "canal español crucero barco viaje mar",
+  "canal español vuelos baratos tips ahorro",
+
+  // ── Additional general discovery ──
+  "canal youtube habla hispana entretenimiento",
+  "contenido español youtube suscribirse",
+  "youtubers de habla hispana poco conocidos",
+  "canal youtube latino arte cultura",
+  "youtubers español motivación inspiración",
+  "canal español debate opinión actualidad",
+  "canal español entrevistas creadores emprendedores",
+  "canal español reacción react video español",
+  "canal español storytime historia personal",
+  "canal español ASMR español relajación",
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -470,35 +841,54 @@ let quotaExceeded = false;
 
 for (const query of queriesToRun) {
   if (quotaExceeded) break;
+  
+  let pageToken = "";
+  let pageNum = 0;
+  const MAX_PAGES = 3;
+  
+  while (pageNum < MAX_PAGES && !quotaExceeded) {
+    try {
+      const params = {
+        part: "snippet",
+        q: query,
+        type: "channel",
+        maxResults: "50",
+        relevanceLanguage: "es",
+      };
+      if (pageToken) params.pageToken = pageToken;
+      
+      const data = await ytGet("search", params);
+      quotaUsed += 100;
+      pageNum++;
 
-  try {
-    const data = await ytGet("search", {
-      part: "snippet",
-      q: query,
-      type: "channel",
-      maxResults: "50",
-      relevanceLanguage: "es",
-    });
-    quotaUsed += 100;
-
-    for (const item of data.items || []) {
-      const channelId = item.snippet?.channelId || item.id?.channelId;
-      if (channelId) {
-        discoveredChannelIds.add(channelId);
+      for (const item of data.items || []) {
+        const channelId = item.snippet?.channelId || item.id?.channelId;
+        if (channelId) {
+          discoveredChannelIds.add(channelId);
+        }
+      }
+      
+      pageToken = data.nextPageToken || "";
+      if (!pageToken) break; // No more pages
+      
+    } catch (e) {
+      if (e.message === "QUOTA_EXCEEDED") {
+        console.log(`  ⚠️  Quota exceeded at "${query}" p${pageNum + 1} — stopping searches`);
+        quotaExceeded = true;
+      } else {
+        console.log(`  ❌ Error for "${query}" p${pageNum + 1}: ${e.message}`);
+        break;
       }
     }
-    console.log(
-      `  ✅ "${query}" → ${(data.items || []).length} results (total unique: ${discoveredChannelIds.size})`
-    );
-  } catch (e) {
-    if (e.message === "QUOTA_EXCEEDED") {
-      console.log(`  ⚠️  Quota exceeded at "${query}" — stopping searches`);
-      quotaExceeded = true;
-    } else {
-      console.log(`  ❌ Error for "${query}": ${e.message}`);
-    }
+    await sleep(100);
   }
-
+  
+  // Log after all pages for this query
+  if (!quotaExceeded) {
+    console.log(
+      `  ✅ "${query}" (${pageNum}p) → unique: ${discoveredChannelIds.size}`
+    );
+  }
   await sleep(100);
 }
 
