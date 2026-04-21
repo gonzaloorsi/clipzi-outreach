@@ -771,10 +771,12 @@ if (newSendResults.length > 0) {
     const status = r.status === "sent"
       ? "✅ Enviado"
       : `❌ ${r.error || "Error"}`;
+    const from = r.sentFrom || "-";
     return `<tr>
       <td style="padding:8px;border:1px solid #ddd;">${r.cleanName || r.channel}</td>
       <td style="padding:8px;border:1px solid #ddd;text-align:right;">${subs}</td>
       <td style="padding:8px;border:1px solid #ddd;">${r.email}</td>
+      <td style="padding:8px;border:1px solid #ddd;">${from}</td>
       <td style="padding:8px;border:1px solid #ddd;">${status}</td>
     </tr>`;
   }).join("");
@@ -795,6 +797,7 @@ if (newSendResults.length > 0) {
           <th style="padding:8px;border:1px solid #ddd;text-align:left;">Canal</th>
           <th style="padding:8px;border:1px solid #ddd;text-align:right;">Subs</th>
           <th style="padding:8px;border:1px solid #ddd;text-align:left;">Email</th>
+          <th style="padding:8px;border:1px solid #ddd;text-align:left;">Desde</th>
           <th style="padding:8px;border:1px solid #ddd;text-align:left;">Estado</th>
         </tr>
       </thead>
