@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "title": "Mary in WILD 𖣴",
+    "cleanName": "Mary in WILD 𖣴",
+    "channelId": "UCPi9fJ97ZOCTM_vXgxkAj4w",
+    "country": "US",
+    "subscribers": 33600,
+    "videoCount": 22,
+    "emails": "mary.in.wild@gmail.com",
+    "primaryEmail": "mary.in.wild@gmail.com",
+    "score": 15,
+    "discoveredDate": "2026-04-22T11:16:06.757Z"
+  },
+  {
+    "title": "Un Argentino En Crisis",
+    "cleanName": "Un Argentino En Crisis",
+    "channelId": "UCBCTz7bJqjri7NXUxm7k5tA",
+    "country": "AR",
+    "subscribers": 8190,
+    "videoCount": 25,
+    "emails": "elchuwakade.007@gmail.com",
+    "primaryEmail": "elchuwakade.007@gmail.com",
+    "score": 10,
+    "discoveredDate": "2026-04-22T11:16:06.757Z"
+  },
+  {
+    "title": "Rap World",
+    "cleanName": "Rap World",
+    "channelId": "UCRPWYog6qpwgpkZUELrRCDw",
+    "country": "",
+    "subscribers": 7210,
+    "videoCount": 18,
+    "emails": "RapWorldContacto@gmail.com",
+    "primaryEmail": "rapworldcontacto@gmail.com",
+    "score": 0,
+    "discoveredDate": "2026-04-22T11:16:06.757Z"
+  }
+]
