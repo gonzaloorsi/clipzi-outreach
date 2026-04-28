@@ -24,7 +24,7 @@ const SENDERS = [
 ].filter(s => s.email);
 
 const MAX_EMAILS_PER_DAY = SENDERS.reduce((sum, s) => sum + s.limit, 0);
-const QUEUE_THRESHOLD = 400; // 2 days buffer at 200/day
+// No queue threshold — ALWAYS search to maximize API usage
 const QUERIES_PER_RUN = 150;
 const SEND_DELAY_MS = 200;
 const MIN_SUBSCRIBERS = 7_000;
@@ -1120,10 +1120,10 @@ if (pendingIds.length > 0) {
   console.log("⏳ No pending IDs to process.\n");
 }
 
-// ─── Step 2: Search for NEW channels (only if queue needs more) ─────────────
+// ─── Step 2: ALWAYS search for new channels (use all available quota) ────────
 
-if (emailQueue.length < QUEUE_THRESHOLD) {
-  console.log(`📋 Queue below threshold (${emailQueue.length}/${QUEUE_THRESHOLD}) — searching for more...\n`);
+{
+  console.log(`📋 Queue: ${emailQueue.length} | Always searching to maximize API usage\n`);
 
   // ─── Search YouTube Videos ──────────────────────────────────────────────────
 
@@ -1279,8 +1279,6 @@ if (emailQueue.length < QUEUE_THRESHOLD) {
   } else {
     console.log("⚠️  No channels discovered from search.\n");
   }
-} else {
-  console.log(`📋 Queue has ${emailQueue.length} pending (≥${QUEUE_THRESHOLD}) — skipping search, saving quota\n`);
 }
 
 // ─── Step E: Send Emails from Queue ─────────────────────────────────────────
