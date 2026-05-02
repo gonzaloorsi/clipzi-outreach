@@ -171,26 +171,50 @@ export async function GET(req: NextRequest) {
       });
 
       if (res.ok) {
+        // Sequential writes — neon-http doesn't support transactions.
+        // sends INSERT is the source of truth for "we sent". The candidate
+        // query filters by `email NOT IN sends`, so even if the channels
+        // UPDATE fails afterwards, no duplicate send can occur.
+        let insertOk = false;
+        let insertErr: string | null = null;
         try {
-          await db.transaction(async (tx) => {
-            await tx
-              .insert(sends)
-              .values({
-                channelId: c.id,
-                email,
-                senderId: sender.id,
-                status: "sent",
-                espMessageId: res.messageId,
-                sentAt: new Date(),
-                language: c.language ?? "en",
-                templateId: "v1_en",
-              })
-              .onConflictDoNothing();
-            await tx
+          const inserted = await db
+            .insert(sends)
+            .values({
+              channelId: c.id,
+              email,
+              senderId: sender.id,
+              status: "sent",
+              espMessageId: res.messageId,
+              sentAt: new Date(),
+              language: c.language ?? "en",
+              templateId: "v1_en",
+            })
+            .onConflictDoNothing()
+            .returning({ id: sends.id });
+          insertOk = inserted.length > 0;
+          if (!insertOk) {
+            // ON CONFLICT skipped — race or pre-existing row. Still safe.
+            insertOk = true;
+          }
+        } catch (e: unknown) {
+          insertErr = e instanceof Error ? e.message : String(e);
+        }
+
+        if (insertOk) {
+          // Best-effort status update. If this fails, channel stays
+          // status='queued' but is filtered from future picks because its
+          // email is now in sends.
+          try {
+            await db
               .update(channels)
               .set({ status: "sent", updatedAt: new Date() })
               .where(eq(channels.id, c.id));
-          });
+          } catch (e: unknown) {
+            log(
+              `⚠️  channels status update failed for ${c.id} (send already recorded): ${e instanceof Error ? e.message : String(e)}`,
+            );
+          }
           await recordSenderUsed(sender.id);
           sent++;
           results.push({
@@ -200,20 +224,20 @@ export async function GET(req: NextRequest) {
             status: "sent",
             messageId: res.messageId,
           });
-        } catch (dbErr: unknown) {
-          // Email already went out via Resend, but DB write failed.
+        } else {
+          // Email went out via Resend but we couldn't record it. Critical:
+          // include the messageId so manual recovery is possible.
           failed++;
-          const errMsg =
-            dbErr instanceof Error ? dbErr.message : String(dbErr);
           log(
-            `⚠️  email sent via ${sender.email} but DB write failed for ${email}: ${errMsg}`,
+            `⚠️  email sent (resend id=${res.messageId}) via ${sender.email} but sends INSERT failed for ${email}: ${insertErr}`,
           );
           results.push({
             channelId: c.id,
             email,
             sender: sender.email,
             status: "sent_db_failed",
-            error: errMsg,
+            messageId: res.messageId,
+            error: insertErr ?? "unknown insert failure",
           });
         }
       } else {
