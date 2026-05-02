@@ -1,10 +1,14 @@
 name: Daily YouTube Outreach
 
 on:
-  schedule:
-    # Run at 7:47 AM Argentina (10:47 UTC)
-    - cron: '47 10 * * *'
-  workflow_dispatch: # Allow manual trigger
+  # Schedule disabled 2026-05-02 — replaced by Vercel Cron at /api/cron/send
+  # (runs hourly, multi-sender pool, writes to Neon). The new sender lives
+  # in app/api/cron/send/route.ts and uses lib/sender-pool.ts.
+  # Kept workflow_dispatch so we can still trigger the legacy script manually
+  # via `gh workflow run daily-outreach.yml` if we ever need an emergency fallback.
+  # schedule:
+  #   - cron: '47 10 * * *'  # 7:47 AM ART (was the legacy daily run)
+  workflow_dispatch:
 
 permissions:
   contents: write
