@@ -102,9 +102,10 @@ export const channels = pgTable(
     statusIdx: index("channels_status_idx").on(t.status),
     scoreIdx: index("channels_score_idx").on(t.score),
     countryIdx: index("channels_country_idx").on(t.country),
-    primaryEmailUq: uniqueIndex("channels_primary_email_uq")
-      .on(t.primaryEmail)
-      .where(sql`${t.primaryEmail} IS NOT NULL`),
+    // NOTE: NOT unique. Multiple channels can share the same contact email
+    // (manager, MCN, family channels). The "no repeats on send" guarantee
+    // lives on sends.email UNIQUE — that's where it belongs.
+    primaryEmailIdx: index("channels_primary_email_idx").on(t.primaryEmail),
     lastRefreshedIdx: index("channels_last_refreshed_idx").on(t.lastRefreshedAt),
   }),
 );
