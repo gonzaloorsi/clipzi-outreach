@@ -223,11 +223,20 @@ export async function recordPendingChannels(
     discoveredVia: source,
   }));
 
-  const inserted = await db
-    .insert(channels)
-    .values(rows)
-    .onConflictDoNothing({ target: channels.id })
-    .returning({ id: channels.id });
+  // Chunk to stay under neon-http body limits. A single INSERT with thousands
+  // of rows hits "value too large to transmit" at full discovery quota. 500
+  // rows × 4 cols = 2000 params per batch — well within Postgres + HTTP.
+  const BATCH = 500;
+  const inserted: Array<{ id: string }> = [];
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const chunk = rows.slice(i, i + BATCH);
+    const result = await db
+      .insert(channels)
+      .values(chunk)
+      .onConflictDoNothing({ target: channels.id })
+      .returning({ id: channels.id });
+    inserted.push(...result);
+  }
 
   const newIds = inserted.map((r) => r.id);
   return { newIds, alreadyKnown: channelIds.length - newIds.length };
