@@ -1,6 +1,5 @@
-// /dashboard — operational view of the outreach system.
-// Server component, all queries via Promise.all. Auto-refresh every 30s via
-// meta tag. Each section has a one-line explanation in italic gray.
+// /dashboard — operador-friendly view, simplificado.
+// Server component, queries en paralelo, auto-refresh cada 30s.
 
 import {
   getKPIs,
@@ -16,55 +15,60 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// ─── Style primitives ──────────────────────────────────────────────────
-
-const colors = {
+const c = {
   bg: "#0a0a0a",
   card: "#141414",
+  cardHi: "#1a1a1a",
   border: "#262626",
-  text: "#e5e5e5",
-  textDim: "#888",
-  textMuted: "#666",
+  text: "#e8e8e8",
+  dim: "#888",
+  muted: "#5a5a5a",
   accent: "#3b82f6",
   ok: "#22c55e",
   warn: "#eab308",
   err: "#ef4444",
 };
 
-const styles = {
+const s = {
   page: {
     fontFamily: "system-ui, -apple-system, sans-serif",
-    background: colors.bg,
-    color: colors.text,
+    background: c.bg,
+    color: c.text,
     padding: "1.5rem",
-    maxWidth: 1200,
+    maxWidth: 1100,
     margin: "0 auto",
   } as React.CSSProperties,
-  h1: { fontSize: "1.5rem", margin: "0 0 0.5rem 0" } as React.CSSProperties,
-  h2: {
-    fontSize: "1.05rem",
-    margin: "1.5rem 0 0.25rem 0",
+  h1: {
+    fontSize: "1.4rem",
+    margin: 0,
     fontWeight: 600,
   } as React.CSSProperties,
-  explain: {
-    color: colors.textDim,
+  section: { marginTop: "2rem" } as React.CSSProperties,
+  h2: {
+    fontSize: "0.95rem",
+    margin: "0 0 0.25rem 0",
+    fontWeight: 600,
+    color: c.text,
+  } as React.CSSProperties,
+  hint: {
+    color: c.dim,
     fontSize: 12,
-    fontStyle: "italic",
     margin: "0 0 0.75rem 0",
+    lineHeight: 1.4,
   } as React.CSSProperties,
   card: {
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
+    background: c.card,
+    border: `1px solid ${c.border}`,
     borderRadius: 8,
     padding: "1rem",
   } as React.CSSProperties,
-  kpiGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 12,
+  num: {
+    fontSize: "1.75rem",
+    fontWeight: 600,
+    fontVariantNumeric: "tabular-nums" as const,
+    lineHeight: 1.1,
   } as React.CSSProperties,
-  kpiNum: { fontSize: "1.75rem", fontWeight: 600, lineHeight: 1.1 } as React.CSSProperties,
-  kpiLbl: { color: colors.textDim, fontSize: 12, marginTop: 4 } as React.CSSProperties,
+  numLbl: { color: c.dim, fontSize: 12, marginTop: 4 } as React.CSSProperties,
   table: {
     width: "100%",
     borderCollapse: "collapse" as const,
@@ -72,19 +76,19 @@ const styles = {
   } as React.CSSProperties,
   th: {
     textAlign: "left" as const,
-    color: colors.textDim,
+    color: c.muted,
     fontWeight: 500,
     padding: "8px 10px",
-    borderBottom: `1px solid ${colors.border}`,
+    borderBottom: `1px solid ${c.border}`,
     fontSize: 11,
     textTransform: "uppercase" as const,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   } as React.CSSProperties,
   td: {
     padding: "8px 10px",
-    borderBottom: `1px solid ${colors.border}`,
+    borderBottom: `1px solid ${c.border}`,
   } as React.CSSProperties,
-  badge: (color: string): React.CSSProperties => ({
+  chip: (color: string): React.CSSProperties => ({
     display: "inline-block",
     padding: "2px 8px",
     borderRadius: 4,
@@ -103,460 +107,448 @@ function fmtSubs(n: number | null): string {
   return String(n);
 }
 
-function fmtAgo(ts: string | null): string {
-  if (!ts) return "—";
+function ago(ts: string | null): string {
+  if (!ts) return "nunca";
   const t = new Date(String(ts).replace(" ", "T"));
-  const ageMs = Date.now() - t.getTime();
-  const m = Math.floor(ageMs / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  const m = Math.floor((Date.now() - t.getTime()) / 60000);
+  if (m < 1) return "ahora";
+  if (m < 60) return `hace ${m} min`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return `hace ${h}h`;
+  return `hace ${Math.floor(h / 24)}d`;
 }
 
-function fmtTs(ts: string | null): string {
-  if (!ts) return "—";
-  return String(ts).slice(0, 19).replace("T", " ");
-}
-
-function statusBadge(status: string): React.CSSProperties {
+function langLabel(code: string | null): string {
+  if (!code) return "—";
   const map: Record<string, string> = {
-    sent: colors.ok,
-    queued: colors.accent,
-    enriched: colors.textDim,
-    pending: colors.warn,
-    no_email: colors.textMuted,
-    low_quality: colors.textMuted,
-    bounced: colors.err,
-    complained: colors.err,
-    opted_out: colors.warn,
-    failed: colors.err,
-    sent_db_failed: colors.warn,
-    active: colors.ok,
-    warming: colors.warn,
-    paused: colors.warn,
-    burned: colors.err,
-    provisioning: colors.textDim,
+    en: "Inglés",
+    es: "Español",
+    pt: "Portugués",
+    de: "Alemán",
+    fr: "Francés",
+    it: "Italiano",
   };
-  return styles.badge(map[status] ?? colors.textDim);
+  return map[code] ?? code;
+}
+
+const COUNTRY_NAMES: Record<string, string> = {
+  US: "Estados Unidos", GB: "Reino Unido", CA: "Canadá", AU: "Australia",
+  IN: "India", PH: "Filipinas", DE: "Alemania", FR: "Francia", IT: "Italia",
+  ES: "España", BR: "Brasil", MX: "México", AR: "Argentina", CO: "Colombia",
+  CL: "Chile", PE: "Perú", PT: "Portugal", NL: "Países Bajos", SE: "Suecia",
+  ID: "Indonesia", JP: "Japón", KR: "Corea", TR: "Turquía", PL: "Polonia",
+  CH: "Suiza", AT: "Austria", BE: "Bélgica", DK: "Dinamarca", FI: "Finlandia",
+  NO: "Noruega", IE: "Irlanda", NZ: "Nueva Zelanda", ZA: "Sudáfrica",
+  EC: "Ecuador", VE: "Venezuela", UY: "Uruguay", PY: "Paraguay",
+};
+
+function countryLabel(code: string | null): string {
+  if (!code || code === "(null)" || code === "?") return "Desconocido";
+  return COUNTRY_NAMES[code] ?? code;
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
-  const [
-    kpis,
-    pipeline,
-    recent,
-    senders,
-    windowState,
-    runs,
-    breakdown,
-    heartbeat,
-  ] = await Promise.all([
-    getKPIs(),
-    getPipeline(),
-    getRecentSends(20),
-    getSenderPool(),
-    Promise.resolve(getSendWindowState()),
-    getDiscoveryRuns(10),
-    getSendsBreakdown(),
-    getCronHeartbeat(),
-  ]);
+  const [kpis, pipeline, recent, senders, win, runs, breakdown, heart] =
+    await Promise.all([
+      getKPIs(),
+      getPipeline(),
+      getRecentSends(15),
+      getSenderPool(),
+      Promise.resolve(getSendWindowState()),
+      getDiscoveryRuns(5),
+      getSendsBreakdown(),
+      getCronHeartbeat(),
+    ]);
 
   const utilization = kpis.totalDailyCapacity > 0
     ? Math.round((kpis.sent24h / kpis.totalDailyCapacity) * 100)
     : 0;
+  const runwayDays = kpis.queuedSendable / Math.max(1, kpis.totalDailyCapacity);
+
+  // Get pipeline numbers we care about (rest into "other")
+  const totalChannels = pipeline.reduce((a, p) => a + p.cnt, 0);
+  const queued = pipeline.find((p) => p.status === "queued")?.cnt ?? 0;
+  const sent = pipeline.find((p) => p.status === "sent")?.cnt ?? 0;
+  const noEmail = pipeline.find((p) => p.status === "no_email")?.cnt ?? 0;
+
+  // System health
+  const lastSendMinutesAgo = heart.lastSendAt
+    ? Math.floor((Date.now() - new Date(String(heart.lastSendAt).replace(" ", "T")).getTime()) / 60000)
+    : Infinity;
+  const lastRun = runs[0];
+  const discoveryHealthy = lastRun && !lastRun.error;
+  const sendHealthy = lastSendMinutesAgo < 90; // last cron should fire every hour
+
+  // Active language code → label for the breakdown
+  const top7dByLang = breakdown.byLanguage.filter((x) => x.key !== "?");
+  const legacyLangCount = breakdown.byLanguage.find((x) => x.key === "?")?.cnt ?? 0;
 
   return (
     <>
       <meta httpEquiv="refresh" content="30" />
-      <main style={styles.page}>
-        <h1 style={styles.h1}>Clipzi Outreach — operational dashboard</h1>
-        <p style={styles.explain}>
-          Auto-refreshes every 30s. All numbers come from Neon Postgres
-          ({heartbeat.totalChannelsKnown.toLocaleString()} channels in DB).
-          Last send {fmtAgo(heartbeat.lastSendAt)} · last discovery{" "}
-          {fmtAgo(heartbeat.lastDiscoveryAt)}.
-        </p>
-
-        {/* ─── KPIs ──────────────────────────────────────────────── */}
-        <h2 style={styles.h2}>Key numbers</h2>
-        <p style={styles.explain}>
-          Sent counts come from <code>sends</code> table (status='sent').
-          Sendable = queued channels with email, not yet contacted, not opted-out.
-          Capacity = sum of <code>daily_limit</code> across active senders.
-        </p>
-        <div style={styles.kpiGrid}>
-          <KPICard label="Sent all-time" value={kpis.totalSent.toLocaleString()} />
-          <KPICard
-            label="Sent last 24h"
-            value={`${kpis.sent24h} / ${kpis.totalDailyCapacity}`}
-            sub={`${utilization}% of daily capacity`}
-          />
-          <KPICard label="Sent last 7d" value={kpis.sent7d.toLocaleString()} />
-          <KPICard
-            label="Queued sendable now"
-            value={kpis.queuedSendable.toLocaleString()}
-            sub={`~${(kpis.queuedSendable / Math.max(1, kpis.totalDailyCapacity)).toFixed(1)} days runway`}
-          />
-          <KPICard
-            label="Failed all-time"
-            value={kpis.failedAllTime}
-            sub={kpis.failedAllTime > 0 ? "investigate" : "none"}
-            color={kpis.failedAllTime > 0 ? colors.warn : undefined}
-          />
+      <main style={s.page}>
+        {/* HEADER + STATUS */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <h1 style={s.h1}>Clipzi Outreach</h1>
+          <div style={{ fontSize: 13, color: c.dim }}>
+            <a href="/api/logout" style={{ color: c.dim, textDecoration: "underline" }}>
+              salir
+            </a>
+          </div>
+        </div>
+        <div style={{ marginTop: 4, fontSize: 13, color: c.dim }}>
+          {sendHealthy && discoveryHealthy ? (
+            <span>
+              <span style={{ color: c.ok }}>● </span>
+              Sistema funcionando · último envío {ago(heart.lastSendAt)}
+            </span>
+          ) : (
+            <span>
+              <span style={{ color: c.warn }}>⚠ </span>
+              {!sendHealthy && <>Sin envíos hace {lastSendMinutesAgo}m. </>}
+              {!discoveryHealthy && lastRun?.error && (
+                <>Discovery falló: {String(lastRun.error).slice(0, 80)}</>
+              )}
+            </span>
+          )}
         </div>
 
-        {/* ─── Pipeline ─────────────────────────────────────────── */}
-        <h2 style={styles.h2}>Pipeline funnel</h2>
-        <p style={styles.explain}>
-          Lifecycle of every channel ever discovered. Sum equals total channels in DB.
-          A channel moves: <code>pending</code> → enriched (or no_email/low_quality)
-          → if has email and meets threshold → <code>queued</code> → after send →{" "}
-          <code>sent</code>.
-        </p>
-        <div style={styles.card}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Stage</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Count</th>
-                <th style={{ ...styles.th, width: "60%" }}>Distribution</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pipeline.map((p) => {
-                const total = pipeline.reduce((s, x) => s + x.cnt, 0);
-                const pct = total > 0 ? (p.cnt / total) * 100 : 0;
-                return (
-                  <tr key={p.status}>
-                    <td style={styles.td}>
-                      <span style={statusBadge(p.status)}>{p.status}</span>
-                    </td>
-                    <td style={{ ...styles.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {p.cnt.toLocaleString()}
-                    </td>
-                    <td style={styles.td}>
-                      <div
+        {/* SECTION 1: HOY */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Hoy</h2>
+          <p style={s.hint}>
+            Lo que pasó en las últimas 24 horas. Mandamos 1 email por canal —
+            jamás repetimos.
+          </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <div style={s.card}>
+              <div style={s.num}>{kpis.sent24h}</div>
+              <div style={s.numLbl}>
+                Emails enviados
+                <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                  {utilization}% de la capacidad diaria ({kpis.totalDailyCapacity})
+                </div>
+              </div>
+            </div>
+            <div style={s.card}>
+              <div style={{ ...s.num, color: kpis.failedAllTime > 0 ? c.warn : c.text }}>
+                {kpis.failedAllTime}
+              </div>
+              <div style={s.numLbl}>
+                Fallidos (todo el tiempo)
+                <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                  {kpis.failedAllTime === 0 ? "todo OK" : "revisar errores"}
+                </div>
+              </div>
+            </div>
+            <div style={s.card}>
+              <div style={s.num}>{kpis.sent7d}</div>
+              <div style={s.numLbl}>
+                Esta semana
+                <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                  últimos 7 días
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 2: CARTERA */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Cartera</h2>
+          <p style={s.hint}>
+            Canales que descubrimos. Algunos no tienen email público, otros sí
+            pero ya los contactamos. Los <em>listos para enviar</em> son los
+            que el cron va a procesar las próximas horas.
+          </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <div style={s.card}>
+              <div style={{ ...s.num, color: c.accent }}>
+                {kpis.queuedSendable.toLocaleString()}
+              </div>
+              <div style={s.numLbl}>
+                Listos para enviar
+                <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                  alcanza para ~{runwayDays.toFixed(0)} días al ritmo actual
+                </div>
+              </div>
+            </div>
+            <div style={s.card}>
+              <div style={s.num}>{kpis.totalSent.toLocaleString()}</div>
+              <div style={s.numLbl}>
+                Ya contactados
+                <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                  histórico (legacy + Vercel)
+                </div>
+              </div>
+            </div>
+            <div style={s.card}>
+              <div style={s.num}>{totalChannels.toLocaleString()}</div>
+              <div style={s.numLbl}>
+                Canales descubiertos en total
+                <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                  {noEmail.toLocaleString()} sin email · resto en proceso
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 3: CASILLAS */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Casillas de envío</h2>
+          <p style={s.hint}>
+            Cada email desde el que mandamos. Si una se acerca al límite diario,
+            el sistema rota a las otras automáticamente.
+          </p>
+          <div style={s.card}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  <th style={s.th}>Email</th>
+                  <th style={{ ...s.th, textAlign: "right" }}>Hoy</th>
+                  <th style={{ ...s.th, textAlign: "right" }}>Histórico</th>
+                  <th style={s.th}>Último envío</th>
+                </tr>
+              </thead>
+              <tbody>
+                {senders.map((sd) => {
+                  const pct = sd.daily_limit > 0 ? (sd.sent_24h / sd.daily_limit) * 100 : 0;
+                  return (
+                    <tr key={sd.id}>
+                      <td style={s.td}>{sd.email}</td>
+                      <td
                         style={{
-                          background: colors.bg,
-                          borderRadius: 4,
-                          overflow: "hidden",
-                          height: 8,
+                          ...s.td,
+                          textAlign: "right",
+                          fontVariantNumeric: "tabular-nums",
+                          color: pct > 90 ? c.warn : c.text,
                         }}
                       >
-                        <div
-                          style={{
-                            width: `${pct}%`,
-                            height: "100%",
-                            background: colors.accent + "aa",
-                          }}
-                        />
-                      </div>
-                      <div style={{ fontSize: 11, color: colors.textDim, marginTop: 2 }}>
-                        {pct.toFixed(1)}%
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                        {sd.sent_24h} / {sd.daily_limit}
+                      </td>
+                      <td
+                        style={{
+                          ...s.td,
+                          textAlign: "right",
+                          fontVariantNumeric: "tabular-nums",
+                          color: c.dim,
+                        }}
+                      >
+                        {sd.sent_total.toLocaleString()}
+                      </td>
+                      <td style={{ ...s.td, color: c.dim }}>{ago(sd.last_used_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        {/* ─── Senders pool ─────────────────────────────────────── */}
-        <h2 style={styles.h2}>Sender pool</h2>
-        <p style={styles.explain}>
-          Each row is one inbox configured via <code>SENDER_EMAIL_N</code> env.{" "}
-          <code>sent_24h</code> is computed from <code>sends.sent_at</code> (rolling
-          window, not midnight reset). When sent_24h hits daily_limit, that sender
-          is skipped until older sends fall outside the 24h window.
-        </p>
-        <div style={styles.card}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>State</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>24h / limit</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>All-time</th>
-                <th style={styles.th}>Last used</th>
-              </tr>
-            </thead>
-            <tbody>
-              {senders.map((s) => {
-                const pct = (s.sent_24h / s.daily_limit) * 100;
-                return (
-                  <tr key={s.id}>
-                    <td style={styles.td}>{s.email}</td>
-                    <td style={styles.td}>
-                      <span style={statusBadge(s.state)}>{s.state}</span>
-                    </td>
-                    <td
-                      style={{
-                        ...styles.td,
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                        color: pct > 90 ? colors.warn : colors.text,
-                      }}
-                    >
-                      {s.sent_24h} / {s.daily_limit}
-                    </td>
-                    <td
-                      style={{
-                        ...styles.td,
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {s.sent_total.toLocaleString()}
-                    </td>
-                    <td style={{ ...styles.td, color: colors.textDim }}>
-                      {fmtAgo(s.last_used_at)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ─── Send window ──────────────────────────────────────── */}
-        <h2 style={styles.h2}>Send window state (timezone gate)</h2>
-        <p style={styles.explain}>
-          Only countries whose local hour is within {windowState.window.start}:00–
-          {windowState.window.end}:00 are eligible for the next send cron tick.
-          Avoids 3 AM emails. <code>{windowState.active.length}</code> in window,{" "}
-          <code>{windowState.outside.length}</code> outside. Override with{" "}
-          <code>?ignoreWindow=1</code>.
-        </p>
-        <div style={{ ...styles.card, display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ color: colors.ok, fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-              ✓ IN WINDOW ({windowState.active.length})
-            </div>
-            <div style={{ fontSize: 11, color: colors.textDim, lineHeight: 1.6 }}>
-              {windowState.active
-                .map((c) => `${c.country} ${c.hour}:00`)
-                .join(" · ")}
+        {/* SECTION 4: HORARIO */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Horario de envío</h2>
+          <p style={s.hint}>
+            Solo mandamos cuando el reloj local del recipiente está entre las{" "}
+            {win.window.start}h y las {win.window.end}h. Esto evita que llegue
+            un email a las 3 AM y baja el riesgo de spam.
+          </p>
+          <div style={s.card}>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 13, color: c.ok, fontWeight: 600 }}>
+                  ● {win.active.length} países activos ahora
+                </div>
+                <div style={{ fontSize: 11, color: c.dim, marginTop: 4, lineHeight: 1.5 }}>
+                  {win.active.slice(0, 12).map((x) => countryLabel(x.country)).join(" · ")}
+                  {win.active.length > 12 && ` · +${win.active.length - 12} más`}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, color: c.muted, fontWeight: 600 }}>
+                  ○ {win.outside.length} países fuera de horario
+                </div>
+                <div style={{ fontSize: 11, color: c.muted, marginTop: 4, lineHeight: 1.5 }}>
+                  esperan a que su reloj local entre en {win.window.start}h–{win.window.end}h
+                </div>
+              </div>
             </div>
           </div>
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ color: colors.textMuted, fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-              ⏸ OUTSIDE ({windowState.outside.length})
-            </div>
-            <div style={{ fontSize: 11, color: colors.textMuted, lineHeight: 1.6 }}>
-              {windowState.outside
-                .map((c) => `${c.country} ${c.hour}:00`)
-                .join(" · ")}
-            </div>
-          </div>
-        </div>
+        </section>
 
-        {/* ─── Recent sends ─────────────────────────────────────── */}
-        <h2 style={styles.h2}>Recent sends (last 20)</h2>
-        <p style={styles.explain}>
-          Most recent rows from <code>sends</code> table. Status = the actual API
-          outcome. Lang = which template was used. Sender = which inbox the email
-          went out from.
-        </p>
-        <div style={styles.card}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>When</th>
-                <th style={styles.th}>Channel</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Subs</th>
-                <th style={styles.th}>Country</th>
-                <th style={styles.th}>Lang</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Sender</th>
-                <th style={styles.th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent.length === 0 && (
+        {/* SECTION 5: ÚLTIMOS ENVÍOS */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Últimos envíos</h2>
+          <p style={s.hint}>
+            Los 15 más recientes. Cada fila es un email único a un canal único.
+          </p>
+          <div style={s.card}>
+            <table style={s.table}>
+              <thead>
                 <tr>
-                  <td style={styles.td} colSpan={8}>
-                    <em style={{ color: colors.textDim }}>(no sends yet)</em>
-                  </td>
+                  <th style={s.th}>Cuándo</th>
+                  <th style={s.th}>Canal</th>
+                  <th style={{ ...s.th, textAlign: "right" }}>Subs</th>
+                  <th style={s.th}>País</th>
+                  <th style={s.th}>Idioma</th>
+                  <th style={s.th}>Email</th>
+                  <th style={s.th}>Estado</th>
                 </tr>
-              )}
-              {recent.map((r, i) => (
-                <tr key={r.channel_id + i}>
-                  <td style={{ ...styles.td, color: colors.textDim, whiteSpace: "nowrap" }}>
-                    {fmtAgo(r.sent_at)}
-                  </td>
-                  <td style={styles.td}>{r.clean_name || r.channel_title}</td>
-                  <td
-                    style={{
-                      ...styles.td,
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmtSubs(r.subscribers)}
-                  </td>
-                  <td style={{ ...styles.td, color: colors.textDim }}>
-                    {r.country ?? "—"}
-                  </td>
-                  <td style={{ ...styles.td, color: colors.textDim }}>
-                    {r.language ?? "—"}
-                  </td>
-                  <td style={{ ...styles.td, fontSize: 11, color: colors.textDim }}>
-                    {r.email}
-                  </td>
-                  <td style={{ ...styles.td, fontSize: 11, color: colors.textDim }}>
-                    {r.sender ?? "—"}
-                  </td>
-                  <td style={styles.td}>
-                    <span style={statusBadge(r.status)}>{r.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ─── Discovery runs ───────────────────────────────────── */}
-        <h2 style={styles.h2}>Discovery runs (last 10)</h2>
-        <p style={styles.explain}>
-          Each row is one cron invocation of <code>/api/cron/discovery</code>.
-          <strong> Freshness</strong> = % of seen channels that were truly NEW.
-          <strong> Qualified</strong> = % of new channels that had email + score
-          ≥ threshold (became <code>queued</code>). Errors here mean the run
-          aborted.
-        </p>
-        <div style={styles.card}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>When</th>
-                <th style={styles.th}>Source</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Quota</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Seen</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>New</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Qualified</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Fresh</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Qual</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Dur (s)</th>
-                <th style={styles.th}>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ ...styles.td, color: colors.textDim, whiteSpace: "nowrap" }}>
-                    {fmtAgo(r.started_at)}
-                  </td>
-                  <td style={{ ...styles.td, fontSize: 11 }}>{r.source}</td>
-                  <td style={{ ...styles.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {r.quota_used}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {r.channels_seen.toLocaleString()}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {r.channels_new.toLocaleString()}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {r.qualified_new.toLocaleString()}
-                  </td>
-                  <td
-                    style={{
-                      ...styles.td,
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                      color: r.freshness_pct > 50 ? colors.ok : r.freshness_pct > 10 ? colors.warn : colors.textDim,
-                    }}
-                  >
-                    {r.freshness_pct.toFixed(1)}%
-                  </td>
-                  <td
-                    style={{
-                      ...styles.td,
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                      color: colors.textDim,
-                    }}
-                  >
-                    {r.qualified_pct.toFixed(1)}%
-                  </td>
-                  <td style={{ ...styles.td, textAlign: "right", color: colors.textDim }}>
-                    {r.duration_s ?? "—"}
-                  </td>
-                  <td
-                    style={{
-                      ...styles.td,
-                      fontSize: 10,
-                      color: r.error ? colors.err : colors.textDim,
-                      maxWidth: 200,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {r.error ? r.error.slice(0, 60) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ─── Breakdown ────────────────────────────────────────── */}
-        <h2 style={styles.h2}>Sends breakdown — last 7 days</h2>
-        <p style={styles.explain}>
-          Distribution of successful sends in the last 7 days. <code>?</code> =
-          legacy migration sends without language metadata. <code>(null)</code> =
-          channels without country in YT API.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <BreakdownCard title="By language" rows={breakdown.byLanguage} />
-          <BreakdownCard title="By country (top 15)" rows={breakdown.byCountry} />
-        </div>
-
-        {/* ─── Cron heartbeat ───────────────────────────────────── */}
-        <h2 style={styles.h2}>Cron heartbeat</h2>
-        <p style={styles.explain}>
-          Last successful invocation of each cron. If "last send" is &gt;90 min
-          old, the hourly cron is broken (or all senders capped + no candidates
-          in window).
-        </p>
-        <div style={styles.card}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
-            <div>
-              <strong>Send cron</strong>
-              <div style={{ color: colors.textDim, marginTop: 4 }}>
-                Last fired: {fmtTs(heartbeat.lastSendAt)} ({fmtAgo(heartbeat.lastSendAt)})
-              </div>
-              <div style={{ color: colors.textDim }}>
-                Sends in last 24h: {heartbeat.lastSendCount24h}
-              </div>
-              <div style={{ color: colors.textDim }}>
-                Schedule: <code>19 * * * *</code> (HH:19 UTC each hour)
-              </div>
-            </div>
-            <div>
-              <strong>Discovery cron</strong>
-              <div style={{ color: colors.textDim, marginTop: 4 }}>
-                Last fired: {fmtTs(heartbeat.lastDiscoveryAt)} ({fmtAgo(heartbeat.lastDiscoveryAt)})
-              </div>
-              <div style={{ color: colors.textDim }}>
-                Last run id: #{heartbeat.lastDiscoveryRunId}
-              </div>
-              <div style={{ color: colors.textDim }}>
-                Schedule: <code>0 */6 * * *</code> (every 6h, on the hour)
-              </div>
-            </div>
+              </thead>
+              <tbody>
+                {recent.length === 0 && (
+                  <tr>
+                    <td style={s.td} colSpan={7}>
+                      <em style={{ color: c.dim }}>(no hay envíos aún)</em>
+                    </td>
+                  </tr>
+                )}
+                {recent.map((r, i) => (
+                  <tr key={r.channel_id + i}>
+                    <td style={{ ...s.td, color: c.dim, whiteSpace: "nowrap" }}>
+                      {ago(r.sent_at)}
+                    </td>
+                    <td style={s.td}>{r.clean_name || r.channel_title}</td>
+                    <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                      {fmtSubs(r.subscribers)}
+                    </td>
+                    <td style={{ ...s.td, color: c.dim }}>
+                      {countryLabel(r.country)}
+                    </td>
+                    <td style={{ ...s.td, color: c.dim }}>
+                      {langLabel(r.language)}
+                    </td>
+                    <td style={{ ...s.td, fontSize: 11, color: c.dim }}>{r.email}</td>
+                    <td style={s.td}>
+                      <span
+                        style={s.chip(
+                          r.status === "sent" ? c.ok : r.status === "failed" ? c.err : c.warn,
+                        )}
+                      >
+                        {r.status === "sent" ? "enviado" : r.status === "failed" ? "falló" : r.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </section>
 
-        <p style={{ ...styles.explain, marginTop: "2rem", textAlign: "center" }}>
-          Updated {new Date().toISOString().slice(11, 19)}Z · v.{process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev"}
-        </p>
+        {/* SECTION 6: BÚSQUEDA */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Búsqueda de canales nuevos</h2>
+          <p style={s.hint}>
+            Cada 6 horas escaneamos YouTube por país y categoría buscando
+            creadores nuevos para sumar a la cartera.
+          </p>
+          <div style={s.card}>
+            {lastRun ? (
+              lastRun.error ? (
+                <div>
+                  <span style={s.chip(c.err)}>⚠ falló</span>{" "}
+                  <span style={{ fontSize: 13 }}>
+                    Última corrida {ago(lastRun.started_at)}
+                  </span>
+                  <div style={{ fontSize: 12, color: c.err, marginTop: 6 }}>
+                    {String(lastRun.error).slice(0, 200)}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <span style={s.chip(c.ok)}>● funcionando</span>{" "}
+                  <span style={{ fontSize: 13 }}>
+                    Última corrida {ago(lastRun.started_at)} ·{" "}
+                    encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
+                    canales nuevos, de los cuales{" "}
+                    <strong>{lastRun.qualified_new}</strong> tienen email y
+                    pasaron el filtro de calidad.
+                  </span>
+                  {runs.length > 1 && (
+                    <div style={{ fontSize: 11, color: c.muted, marginTop: 8 }}>
+                      Últimas 5 corridas:{" "}
+                      {runs
+                        .slice(0, 5)
+                        .map(
+                          (r) =>
+                            `${r.channels_new}n→${r.qualified_new}q${r.error ? " ⚠" : ""}`,
+                        )
+                        .join(" · ")}
+                    </div>
+                  )}
+                </div>
+              )
+            ) : (
+              <em style={{ color: c.dim }}>(no hay corridas registradas)</em>
+            )}
+          </div>
+        </section>
+
+        {/* SECTION 7: MIX 7 DÍAS */}
+        <section style={s.section}>
+          <h2 style={s.h2}>Mix de los últimos 7 días</h2>
+          <p style={s.hint}>
+            Distribución de los emails enviados esta semana. Útil para ver si
+            estamos llegando a los segmentos esperados.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <BreakdownCard
+              title="Idiomas usados"
+              rows={top7dByLang.map((r) => ({ ...r, label: langLabel(r.key) }))}
+              footnote={
+                legacyLangCount > 0
+                  ? `+ ${legacyLangCount} envíos legacy sin idioma registrado`
+                  : undefined
+              }
+            />
+            <BreakdownCard
+              title="Países alcanzados (top 10)"
+              rows={breakdown.byCountry
+                .slice(0, 10)
+                .map((r) => ({ ...r, label: countryLabel(r.key) }))}
+            />
+          </div>
+        </section>
+
+        {/* FOOTER (dev info) */}
+        <div
+          style={{
+            marginTop: "2.5rem",
+            paddingTop: "1rem",
+            borderTop: `1px solid ${c.border}`,
+            color: c.muted,
+            fontSize: 11,
+            textAlign: "center" as const,
+          }}
+        >
+          {totalChannels.toLocaleString()} canales en DB · auto-actualiza cada
+          30s ·{" "}
+          v.{process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev"} ·
+          actualizado {new Date().toISOString().slice(11, 19)}Z
+        </div>
       </main>
     </>
   );
@@ -564,45 +556,23 @@ export default async function DashboardPage() {
 
 // ─── Components ────────────────────────────────────────────────────────
 
-function KPICard({
-  label,
-  value,
-  sub,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  color?: string;
-}) {
-  return (
-    <div style={styles.card}>
-      <div style={{ ...styles.kpiNum, color: color ?? colors.text }}>{value}</div>
-      <div style={styles.kpiLbl}>{label}</div>
-      {sub && (
-        <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function BreakdownCard({
   title,
   rows,
+  footnote,
 }: {
   title: string;
-  rows: Array<{ key: string; cnt: number }>;
+  rows: Array<{ key: string; cnt: number; label: string }>;
+  footnote?: string;
 }) {
-  const total = rows.reduce((s, r) => s + r.cnt, 0);
+  const total = rows.reduce((sum, r) => sum + r.cnt, 0);
   return (
-    <div style={styles.card}>
-      <div style={{ fontSize: 12, color: colors.textDim, marginBottom: 8 }}>
-        {title} · total {total.toLocaleString()}
+    <div style={s.card}>
+      <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+        {title} · {total.toLocaleString()}
       </div>
       {rows.length === 0 && (
-        <em style={{ color: colors.textDim, fontSize: 12 }}>(no data)</em>
+        <em style={{ color: c.dim, fontSize: 12 }}>(sin datos)</em>
       )}
       {rows.map((r) => {
         const pct = total > 0 ? (r.cnt / total) * 100 : 0;
@@ -616,14 +586,17 @@ function BreakdownCard({
                 marginBottom: 2,
               }}
             >
-              <span>{r.key}</span>
-              <span style={{ color: colors.textDim, fontVariantNumeric: "tabular-nums" }}>
-                {r.cnt} <span style={{ fontSize: 10, color: colors.textMuted }}>({pct.toFixed(0)}%)</span>
+              <span>{r.label}</span>
+              <span style={{ color: c.dim, fontVariantNumeric: "tabular-nums" }}>
+                {r.cnt}
+                <span style={{ fontSize: 10, color: c.muted, marginLeft: 6 }}>
+                  {pct.toFixed(0)}%
+                </span>
               </span>
             </div>
             <div
               style={{
-                background: colors.bg,
+                background: c.bg,
                 borderRadius: 2,
                 height: 4,
                 overflow: "hidden",
@@ -633,13 +606,18 @@ function BreakdownCard({
                 style={{
                   width: `${pct}%`,
                   height: "100%",
-                  background: colors.accent + "aa",
+                  background: c.accent + "aa",
                 }}
               />
             </div>
           </div>
         );
       })}
+      {footnote && (
+        <div style={{ fontSize: 10, color: c.muted, marginTop: 8, fontStyle: "italic" }}>
+          {footnote}
+        </div>
+      )}
     </div>
   );
 }
