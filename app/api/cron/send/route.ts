@@ -114,30 +114,55 @@ export async function GET(req: NextRequest) {
       sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${unsubscribes})`,
     ];
 
-    if (countryFilter && countryFilter.length > 0) {
-      // Manual country filter wins over the timezone gate. If the user asked
-      // explicitly for AR at 4 AM AR time, we honor it (testing scenario).
-      const countryList = sql.join(
-        countryFilter.map((c) => sql`${c}`),
-        sql`, `,
+    // Build the country filter. Two independent constraints can apply:
+    //   - timezone gate (the active countries given current UTC), unless
+    //     ?ignoreWindow=1
+    //   - manual ?country= filter (testing a specific segment)
+    // If both are present, we INTERSECT them: the candidate's country must be
+    // in BOTH the manual list AND the active set. To force a country that's
+    // currently outside its window, you must pass ignoreWindow=1.
+    let effectiveCountrySet: string[] | null = null;
+    if (countryFilter && countryFilter.length > 0 && activeCountryList !== null) {
+      effectiveCountrySet = countryFilter.filter((c) =>
+        activeCountryList.includes(c),
       );
-      whereClauses.push(sql`${channels.country} IN (${countryList})`);
-      log(`country filter active: [${countryFilter.join(", ")}] (overrides timezone gate)`);
+      if (effectiveCountrySet.length === 0) {
+        log(
+          `country filter [${countryFilter.join(", ")}] has zero overlap with active countries (all are outside their TZ window)`,
+        );
+      }
+    } else if (countryFilter && countryFilter.length > 0) {
+      // ignoreWindow=1 — manual filter alone, no gate
+      effectiveCountrySet = countryFilter;
     } else if (activeCountryList !== null) {
-      // Apply timezone gate: only countries whose local hour is in window,
-      // plus null-country candidates (we don't know their TZ, so we send anytime).
-      if (activeCountryList.length === 0) {
-        // No country is in window right now. Only null-country candidates eligible.
-        whereClauses.push(sql`${channels.country} IS NULL`);
-        log(`timezone gate: no countries in window — only null-country candidates`);
+      effectiveCountrySet = activeCountryList;
+    }
+
+    if (effectiveCountrySet !== null) {
+      if (effectiveCountrySet.length === 0) {
+        // Nothing matches. Only null-country candidates (no TZ info) get through
+        // when the gate is active. If a user explicitly filtered by country
+        // and got zero overlap, exclude even those.
+        if (countryFilter && countryFilter.length > 0) {
+          whereClauses.push(sql`FALSE`);
+        } else {
+          whereClauses.push(sql`${channels.country} IS NULL`);
+          log(`no countries in window — only null-country candidates eligible`);
+        }
       } else {
-        const activeList = sql.join(
-          activeCountryList.map((c) => sql`${c}`),
+        const list = sql.join(
+          effectiveCountrySet.map((c) => sql`${c}`),
           sql`, `,
         );
-        whereClauses.push(
-          sql`(${channels.country} IN (${activeList}) OR ${channels.country} IS NULL)`,
-        );
+        // Null-country candidates only get included when there's NO manual
+        // country filter (otherwise the user is asking for a specific set).
+        if (countryFilter && countryFilter.length > 0) {
+          whereClauses.push(sql`${channels.country} IN (${list})`);
+        } else {
+          whereClauses.push(
+            sql`(${channels.country} IN (${list}) OR ${channels.country} IS NULL)`,
+          );
+        }
       }
     }
 
