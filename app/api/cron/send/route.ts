@@ -26,6 +26,7 @@ import {
   recordSenderUsed,
   getTotalDailyCapacity,
 } from "@/lib/sender-pool";
+import { activeCountries, parseSendWindow } from "@/lib/timezone";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -59,6 +60,11 @@ export async function GET(req: NextRequest) {
     ?.split(",")
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
+  // Timezone gating: only send to recipients whose local hour is in window.
+  // ?ignoreWindow=1 bypasses for testing.
+  const ignoreWindow = url.searchParams.get("ignoreWindow") === "1";
+  const sendWindow = parseSendWindow(process.env.SEND_WINDOW_HOURS);
+  const activeCountryList = ignoreWindow ? null : activeCountries(sendWindow);
   const log = (msg: string) =>
     console.log(`[send ${new Date().toISOString()}]`, msg);
 
@@ -78,8 +84,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const windowDesc = ignoreWindow
+    ? "BYPASSED (ignoreWindow=1)"
+    : `${sendWindow.start}:00-${sendWindow.end}:00 local, active countries=${activeCountryList?.length ?? 0}`;
   log(
-    `starting — dry=${dryRun} configuredSenders=${senderEmails.length} dailyLimitPerSender=${dailyLimitPerSender}`,
+    `starting dry=${dryRun} configuredSenders=${senderEmails.length} dailyLimitPerSender=${dailyLimitPerSender} window=${windowDesc}`,
   );
 
   const startedAt = Date.now();
@@ -106,12 +115,30 @@ export async function GET(req: NextRequest) {
     ];
 
     if (countryFilter && countryFilter.length > 0) {
+      // Manual country filter wins over the timezone gate. If the user asked
+      // explicitly for AR at 4 AM AR time, we honor it (testing scenario).
       const countryList = sql.join(
         countryFilter.map((c) => sql`${c}`),
         sql`, `,
       );
       whereClauses.push(sql`${channels.country} IN (${countryList})`);
-      log(`country filter active: [${countryFilter.join(", ")}]`);
+      log(`country filter active: [${countryFilter.join(", ")}] (overrides timezone gate)`);
+    } else if (activeCountryList !== null) {
+      // Apply timezone gate: only countries whose local hour is in window,
+      // plus null-country candidates (we don't know their TZ, so we send anytime).
+      if (activeCountryList.length === 0) {
+        // No country is in window right now. Only null-country candidates eligible.
+        whereClauses.push(sql`${channels.country} IS NULL`);
+        log(`timezone gate: no countries in window — only null-country candidates`);
+      } else {
+        const activeList = sql.join(
+          activeCountryList.map((c) => sql`${c}`),
+          sql`, `,
+        );
+        whereClauses.push(
+          sql`(${channels.country} IN (${activeList}) OR ${channels.country} IS NULL)`,
+        );
+      }
     }
 
     const candidates = await db
@@ -300,6 +327,11 @@ export async function GET(req: NextRequest) {
       stoppedReason,
       senders: senderEmails,
       totalDailyCapacity,
+      window: {
+        bypassed: ignoreWindow,
+        hours: `${sendWindow.start}-${sendWindow.end}`,
+        activeCountries: activeCountryList?.length ?? null,
+      },
       durationMs: Date.now() - startedAt,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
       results: dryRun ? results : results.slice(0, 10),
