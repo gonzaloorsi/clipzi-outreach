@@ -1,9 +1,9 @@
 // Sender cron — pulls top-scoring queued channels, sends via Resend, marks sent.
 //
-// "Pilar 2 lite": single sender, single template (English), no rotation, no
-// state machine, no warm-up logic. Just enough to keep the pipeline flowing
-// while we replace the legacy GHA cron. Full Pilar 2 (multi-sender pool,
-// state machine, warm-up, ESP rotation) lands later.
+// "Pilar 2 lite": multiple sender inboxes via SENDER_EMAIL_1..10, round-robin
+// by least-recent usage, per-inbox daily_limit (default 100). No warm-up state
+// machine, no automatic pause on bounce/complaint, no ESP rotation. Pilar 2
+// proper adds those.
 //
 // The "no repeats" guarantee lives entirely in the DB:
 //   - sends.channel_id UNIQUE → can't send to same channel twice
@@ -19,6 +19,13 @@ import { eq, and, sql, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { channels, sends, unsubscribes } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import {
+  loadSenderEmails,
+  syncSendersFromEnv,
+  pickSender,
+  recordSenderUsed,
+  getTotalDailyCapacity,
+} from "@/lib/sender-pool";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -42,60 +49,48 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dry") === "1";
-  // How many to pick this run. Defaults to env cap split into hourly buckets.
-  const dailyCap = Number(process.env.DAILY_SEND_CAP) || 100;
   const explicitMax = Number(url.searchParams.get("max"));
-  const max = explicitMax || Math.max(1, Math.ceil(dailyCap / 24)); // hourly bucket
-
-  const senderEmail = process.env.SENDER_EMAIL;
+  const dailyLimitPerSender = Number(process.env.DAILY_SEND_CAP) || 100;
   const senderName = process.env.SENDER_NAME;
-  const log = (msg: string) => console.log(`[send ${new Date().toISOString()}]`, msg);
+  const log = (msg: string) =>
+    console.log(`[send ${new Date().toISOString()}]`, msg);
 
-  // Validate config early so dry-run also reports issues.
+  // ─── Config validation ─────────────────────────────────────────────────
+  const senderEmails = loadSenderEmails();
   const configErrors: string[] = [];
-  if (!senderEmail) configErrors.push("SENDER_EMAIL not set");
+  if (senderEmails.length === 0)
+    configErrors.push("no SENDER_EMAIL_1..10 (or SENDER_EMAIL) set");
   if (!senderName) configErrors.push("SENDER_NAME not set");
   if (!process.env.RESEND_API_KEY) configErrors.push("RESEND_API_KEY not set");
 
-  log(
-    `starting — dry=${dryRun} max=${max} dailyCap=${dailyCap} configErrors=${configErrors.length}`,
-  );
-
   if (configErrors.length > 0 && !dryRun) {
+    log(`config errors: ${configErrors.join("; ")}`);
     return NextResponse.json(
       { ok: false, error: "missing config", details: configErrors },
       { status: 500 },
     );
   }
 
+  log(
+    `starting — dry=${dryRun} configuredSenders=${senderEmails.length} dailyLimitPerSender=${dailyLimitPerSender}`,
+  );
+
   const startedAt = Date.now();
 
   try {
-    // ─── 1. Daily cap check ─────────────────────────────────────────────
-    // How many have we sent in the last 24h? If >= cap, no-op.
-    const recentSends = await db.execute<{ cnt: number }>(sql`
-      SELECT COUNT(*)::int AS cnt FROM sends
-      WHERE status = 'sent' AND sent_at > NOW() - INTERVAL '24 hours'
-    `);
-    const sentLast24h = (recentSends.rows ?? recentSends)[0]?.cnt ?? 0;
-    const remaining = Math.max(0, dailyCap - sentLast24h);
+    // ─── 1. Sync senders table from env ─────────────────────────────────
+    const syncResult = await syncSendersFromEnv(dailyLimitPerSender);
+    log(
+      `senders sync: ${syncResult.configured} configured, ${syncResult.inserted} new rows`,
+    );
 
-    if (remaining === 0) {
-      log(`daily cap reached (${sentLast24h}/${dailyCap}) — exiting`);
-      return NextResponse.json({
-        ok: true,
-        skipped: true,
-        reason: "daily_cap_reached",
-        sentLast24h,
-        dailyCap,
-      });
-    }
-
-    const toSendCount = Math.min(max, remaining);
-    log(`cap check: ${sentLast24h}/${dailyCap} last 24h, picking up to ${toSendCount}`);
+    const totalDailyCapacity = await getTotalDailyCapacity();
+    // Bucket per cron tick: 1/24 of daily capacity (we run hourly).
+    const max =
+      explicitMax || Math.max(1, Math.ceil(totalDailyCapacity / 24));
+    log(`daily capacity: ${totalDailyCapacity}, picking up to ${max} this run`);
 
     // ─── 2. Pick candidates ─────────────────────────────────────────────
-    // Top-scoring queued channels whose email isn't already sent or unsubscribed.
     const candidates = await db
       .select({
         id: channels.id,
@@ -111,16 +106,13 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(channels.status, "queued"),
-          // primaryEmail is non-null for queued (enrich.ts guarantees this)
           sql`${channels.primaryEmail} IS NOT NULL`,
-          // Exclude already-sent emails
           sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${sends})`,
-          // Exclude unsubscribes
           sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${unsubscribes})`,
         ),
       )
       .orderBy(desc(channels.score))
-      .limit(toSendCount);
+      .limit(max);
 
     log(`candidates picked: ${candidates.length}`);
 
@@ -131,41 +123,54 @@ export async function GET(req: NextRequest) {
         failed: 0,
         skipped: true,
         reason: "no_candidates",
-        sentLast24h,
-        dailyCap,
+        senders: senderEmails,
+        totalDailyCapacity,
       });
     }
 
     // ─── 3. Send each ────────────────────────────────────────────────────
     let sent = 0;
     let failed = 0;
+    let stoppedReason: string | null = null;
     const results: Array<{
       channelId: string;
       email: string;
+      sender?: string;
       status: string;
       messageId?: string;
       error?: string;
     }> = [];
 
     for (const c of candidates) {
+      // Pick sender for THIS send (round-robin by least 24h usage).
+      const sender = await pickSender();
+      if (!sender) {
+        stoppedReason = "all_senders_capped";
+        log(`stopped: all senders at daily limit`);
+        break;
+      }
+
       const channelName = c.cleanName || c.title;
       const email = c.primaryEmail!;
 
       if (dryRun) {
-        results.push({ channelId: c.id, email, status: "dry_run" });
+        results.push({
+          channelId: c.id,
+          email,
+          sender: sender.email,
+          status: "dry_run",
+        });
         continue;
       }
 
       const res = await sendEmail({
         to: email,
         channelName,
-        fromEmail: senderEmail!,
+        fromEmail: sender.email,
         fromName: senderName!,
       });
 
       if (res.ok) {
-        // Insert send + update channel status atomically. If race conditions
-        // cause a duplicate, ON CONFLICT silently no-ops (UNIQUE on email/channel_id).
         try {
           await db.transaction(async (tx) => {
             await tx
@@ -173,6 +178,7 @@ export async function GET(req: NextRequest) {
               .values({
                 channelId: c.id,
                 email,
+                senderId: sender.id,
                 status: "sent",
                 espMessageId: res.messageId,
                 sentAt: new Date(),
@@ -185,26 +191,40 @@ export async function GET(req: NextRequest) {
               .set({ status: "sent", updatedAt: new Date() })
               .where(eq(channels.id, c.id));
           });
+          await recordSenderUsed(sender.id);
           sent++;
-          results.push({ channelId: c.id, email, status: "sent", messageId: res.messageId });
+          results.push({
+            channelId: c.id,
+            email,
+            sender: sender.email,
+            status: "sent",
+            messageId: res.messageId,
+          });
         } catch (dbErr: unknown) {
-          // Email already went out via Resend, but DB write failed. We need
-          // to flag this so we don't silently drop the audit trail.
+          // Email already went out via Resend, but DB write failed.
           failed++;
-          const errMsg = dbErr instanceof Error ? dbErr.message : String(dbErr);
-          log(`⚠️  email sent but DB write failed for ${email}: ${errMsg}`);
-          results.push({ channelId: c.id, email, status: "sent_db_failed", error: errMsg });
+          const errMsg =
+            dbErr instanceof Error ? dbErr.message : String(dbErr);
+          log(
+            `⚠️  email sent via ${sender.email} but DB write failed for ${email}: ${errMsg}`,
+          );
+          results.push({
+            channelId: c.id,
+            email,
+            sender: sender.email,
+            status: "sent_db_failed",
+            error: errMsg,
+          });
         }
       } else {
         failed++;
-        // Record the failure in sends so we don't retry. Status='failed' takes
-        // the slot for both channel_id and email UNIQUE constraints.
         try {
           await db
             .insert(sends)
             .values({
               channelId: c.id,
               email,
+              senderId: sender.id,
               status: "failed",
               errorMessage: res.error,
               language: c.language ?? "en",
@@ -212,25 +232,34 @@ export async function GET(req: NextRequest) {
             })
             .onConflictDoNothing();
         } catch {
-          // ignore — we'll just have to hope the row got in somewhere
+          // Best effort
         }
-        results.push({ channelId: c.id, email, status: "failed", error: res.error });
+        results.push({
+          channelId: c.id,
+          email,
+          sender: sender.email,
+          status: "failed",
+          error: res.error,
+        });
       }
 
       await new Promise((r) => setTimeout(r, SEND_DELAY_MS));
     }
 
-    log(`done — sent=${sent} failed=${failed}`);
+    log(
+      `done — sent=${sent} failed=${failed} stopped=${stoppedReason ?? "none"}`,
+    );
 
     return NextResponse.json({
       ok: true,
       sent,
       failed,
       attempted: candidates.length,
-      sentLast24h: sentLast24h + sent,
-      dailyCap,
+      stoppedReason,
+      senders: senderEmails,
+      totalDailyCapacity,
       durationMs: Date.now() - startedAt,
-      results: dryRun ? results : results.slice(0, 5), // truncate in non-dry to keep payload small
+      results: dryRun ? results : results.slice(0, 10),
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
