@@ -9,6 +9,7 @@ import { neon } from "@neondatabase/serverless";
 const sql = neon(process.env.DATABASE_URL);
 
 const LOST_SENDS = [
+  // First failed cron run (3 emails, all from g@clipzi.video):
   {
     channelId: "UCs-w7E2HZWwXmjt9RTvBB_A",
     email: "settled@clovertalent.gg",
@@ -23,6 +24,18 @@ const LOST_SENDS = [
     channelId: "UC_443VsqmWIzafMrmDHIpbw",
     email: "gio@sunandskyentertainment.com",
     senderEmail: "g@clipzi.video",
+  },
+  // Second failed run (2 emails, this time from g@clipzi.media because
+  // round-robin picked it after the first sender had 3 in the table):
+  {
+    channelId: "UCUaUhkLyJCgVOMB8YOKSN8g",
+    email: "comercial@playguima.com.br",
+    senderEmail: "g@clipzi.media",
+  },
+  {
+    channelId: "UCO9gak-YwrBeiLuQB548YgQ",
+    email: "ukri@inflyzed.com",
+    senderEmail: "g@clipzi.media",
   },
 ];
 

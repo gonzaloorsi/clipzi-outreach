@@ -283,6 +283,7 @@ export async function GET(req: NextRequest) {
       senders: senderEmails,
       totalDailyCapacity,
       durationMs: Date.now() - startedAt,
+      version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
       results: dryRun ? results : results.slice(0, 10),
     });
   } catch (e: unknown) {
