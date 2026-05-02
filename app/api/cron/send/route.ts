@@ -52,6 +52,13 @@ export async function GET(req: NextRequest) {
   const explicitMax = Number(url.searchParams.get("max"));
   const dailyLimitPerSender = Number(process.env.DAILY_SEND_CAP) || 100;
   const senderName = process.env.SENDER_NAME;
+  // Optional country filter: ?country=AU or ?country=AU,NZ,GB
+  // Useful for testing a specific country segment without firing the full bucket.
+  const countryFilter = url.searchParams
+    .get("country")
+    ?.split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
   const log = (msg: string) =>
     console.log(`[send ${new Date().toISOString()}]`, msg);
 
@@ -91,6 +98,22 @@ export async function GET(req: NextRequest) {
     log(`daily capacity: ${totalDailyCapacity}, picking up to ${max} this run`);
 
     // ─── 2. Pick candidates ─────────────────────────────────────────────
+    const whereClauses = [
+      eq(channels.status, "queued"),
+      sql`${channels.primaryEmail} IS NOT NULL`,
+      sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${sends})`,
+      sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${unsubscribes})`,
+    ];
+
+    if (countryFilter && countryFilter.length > 0) {
+      const countryList = sql.join(
+        countryFilter.map((c) => sql`${c}`),
+        sql`, `,
+      );
+      whereClauses.push(sql`${channels.country} IN (${countryList})`);
+      log(`country filter active: [${countryFilter.join(", ")}]`);
+    }
+
     const candidates = await db
       .select({
         id: channels.id,
@@ -103,14 +126,7 @@ export async function GET(req: NextRequest) {
         subscribers: channels.subscribers,
       })
       .from(channels)
-      .where(
-        and(
-          eq(channels.status, "queued"),
-          sql`${channels.primaryEmail} IS NOT NULL`,
-          sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${sends})`,
-          sql`${channels.primaryEmail} NOT IN (SELECT email FROM ${unsubscribes})`,
-        ),
-      )
+      .where(and(...whereClauses))
       .orderBy(desc(channels.score))
       .limit(max);
 
