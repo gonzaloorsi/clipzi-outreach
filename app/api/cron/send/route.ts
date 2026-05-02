@@ -27,6 +27,7 @@ import {
   getTotalDailyCapacity,
 } from "@/lib/sender-pool";
 import { activeCountries, parseSendWindow } from "@/lib/timezone";
+import { sendOutreachReport, type ReportSendResult } from "@/lib/report";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -200,14 +201,33 @@ export async function GET(req: NextRequest) {
     let sent = 0;
     let failed = 0;
     let stoppedReason: string | null = null;
-    const results: Array<{
-      channelId: string;
-      email: string;
-      sender?: string;
-      status: string;
-      messageId?: string;
-      error?: string;
-    }> = [];
+    const results: Array<
+      ReportSendResult & { dry?: boolean; sender?: string }
+    > = [];
+
+    function pushResult(
+      c: (typeof candidates)[number],
+      senderEmail: string,
+      status: ReportSendResult["status"] | "dry_run",
+      extras: Partial<ReportSendResult> = {},
+    ) {
+      const detected = extras.language ?? c.language ?? "en";
+      results.push({
+        channelId: c.id,
+        channelTitle: c.title,
+        cleanName: c.cleanName,
+        email: c.primaryEmail!,
+        senderEmail,
+        language: detected,
+        country: c.country,
+        subscribers: c.subscribers,
+        score: c.score,
+        status: status === "dry_run" ? "sent" : status, // report cares about sent/failed/sent_db_failed
+        dry: status === "dry_run",
+        sender: senderEmail,
+        ...extras,
+      });
+    }
 
     for (const c of candidates) {
       // Pick sender for THIS send (round-robin by least 24h usage).
@@ -222,12 +242,7 @@ export async function GET(req: NextRequest) {
       const email = c.primaryEmail!;
 
       if (dryRun) {
-        results.push({
-          channelId: c.id,
-          email,
-          sender: sender.email,
-          status: "dry_run",
-        });
+        pushResult(c, sender.email, "dry_run");
         continue;
       }
 
@@ -287,11 +302,8 @@ export async function GET(req: NextRequest) {
           }
           await recordSenderUsed(sender.id);
           sent++;
-          results.push({
-            channelId: c.id,
-            email,
-            sender: sender.email,
-            status: "sent",
+          pushResult(c, sender.email, "sent", {
+            language: res.language,
             messageId: res.messageId,
           });
         } else {
@@ -301,11 +313,8 @@ export async function GET(req: NextRequest) {
           log(
             `⚠️  email sent (resend id=${res.messageId}) via ${sender.email} but sends INSERT failed for ${email}: ${insertErr}`,
           );
-          results.push({
-            channelId: c.id,
-            email,
-            sender: sender.email,
-            status: "sent_db_failed",
+          pushResult(c, sender.email, "sent_db_failed", {
+            language: res.language,
             messageId: res.messageId,
             error: insertErr ?? "unknown insert failure",
           });
@@ -328,11 +337,8 @@ export async function GET(req: NextRequest) {
         } catch {
           // Best effort
         }
-        results.push({
-          channelId: c.id,
-          email,
-          sender: sender.email,
-          status: "failed",
+        pushResult(c, sender.email, "failed", {
+          language: res.language,
           error: res.error,
         });
       }
@@ -343,6 +349,80 @@ export async function GET(req: NextRequest) {
     log(
       `done — sent=${sent} failed=${failed} stopped=${stoppedReason ?? "none"}`,
     );
+
+    // ─── 4. Send report email (only if there were attempts and not dry) ──
+    let reportStatus: { ok: boolean; error?: string; messageId?: string } | null = null;
+    if (!dryRun && (sent > 0 || failed > 0)) {
+      try {
+        const [queuedRemainingRow, totalSentRow, senderStatsRows] =
+          await Promise.all([
+            db.execute<{ cnt: number }>(sql`
+              SELECT COUNT(*)::int AS cnt FROM channels
+              WHERE status = 'queued' AND primary_email IS NOT NULL
+                AND primary_email NOT IN (SELECT email FROM sends)
+                AND primary_email NOT IN (SELECT email FROM unsubscribes)
+            `),
+            db.execute<{ cnt: number }>(sql`
+              SELECT COUNT(*)::int AS cnt FROM sends WHERE status = 'sent'
+            `),
+            db.execute<{ email: string; sent_24h: number; daily_limit: number }>(sql`
+              SELECT s.email, s.daily_limit,
+                COALESCE((
+                  SELECT COUNT(*)::int FROM sends
+                  WHERE sender_id = s.id AND status = 'sent'
+                    AND sent_at > NOW() - INTERVAL '24 hours'
+                ), 0) AS sent_24h
+              FROM senders s
+              WHERE s.state = 'active'
+              ORDER BY s.email
+            `),
+          ]);
+
+        const queuedRemaining =
+          (queuedRemainingRow.rows ?? queuedRemainingRow)[0]?.cnt ?? 0;
+        const totalSentAllTime =
+          (totalSentRow.rows ?? totalSentRow)[0]?.cnt ?? 0;
+        const senderStats = (senderStatsRows.rows ?? senderStatsRows).map(
+          (r) => ({
+            email: r.email,
+            sent24h: r.sent_24h,
+            dailyLimit: r.daily_limit,
+          }),
+        );
+
+        // Strip the internal-only fields before passing to report
+        const reportResults = results
+          .filter((r) => !r.dry)
+          .map(({ dry: _dry, sender: _s, ...rest }) => rest);
+
+        reportStatus = await sendOutreachReport({
+          runStartedAt: new Date(startedAt),
+          runDurationMs: Date.now() - startedAt,
+          sent,
+          failed,
+          results: reportResults,
+          totalDailyCapacity,
+          queuedRemaining,
+          totalSentAllTime,
+          window: {
+            bypassed: ignoreWindow,
+            hours: `${sendWindow.start}-${sendWindow.end}`,
+            activeCountries: activeCountryList?.length ?? null,
+          },
+          senderStats,
+          version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
+        });
+        if (reportStatus.ok) {
+          log(`report email sent (id=${reportStatus.messageId})`);
+        } else {
+          log(`⚠️  report email failed: ${reportStatus.error}`);
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        log(`⚠️  report build failed (cron itself OK): ${msg}`);
+        reportStatus = { ok: false, error: msg };
+      }
+    }
 
     return NextResponse.json({
       ok: true,
@@ -359,6 +439,7 @@ export async function GET(req: NextRequest) {
       },
       durationMs: Date.now() - startedAt,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
+      report: reportStatus,
       results: dryRun ? results : results.slice(0, 10),
     });
   } catch (e: unknown) {
