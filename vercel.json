@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/discovery",
-      "schedule": "23 */6 * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/cron/send",
