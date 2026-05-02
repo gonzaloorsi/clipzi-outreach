@@ -78,29 +78,31 @@ export async function pickSender(): Promise<PickedSender | null> {
   const configuredEmails = loadSenderEmails();
   if (configuredEmails.length === 0) return null;
 
-  // We use a CTE to compute sent_24h per active sender, then filter.
+  // Use sql.join to bind each email as its own parameter (works around
+  // drizzle's serialization of JS arrays not casting to text[]).
+  const emailList = sql.join(
+    configuredEmails.map((e) => sql`${e}`),
+    sql`, `,
+  );
+
   const result = await db.execute<{
     id: number;
     email: string;
     sent_24h: number;
     daily_limit: number;
   }>(sql`
-    WITH active_senders AS (
-      SELECT s.id, s.email, s.daily_limit, s.last_used_at
-      FROM senders s
-      WHERE s.state = 'active'
-        AND s.email = ANY(${configuredEmails}::text[])
-    ),
-    counts AS (
-      SELECT a.id, a.email, a.daily_limit, a.last_used_at,
+    WITH counts AS (
+      SELECT s.id, s.email, s.daily_limit, s.last_used_at,
              COALESCE((
                SELECT COUNT(*)::int
                FROM sends
-               WHERE sender_id = a.id
+               WHERE sender_id = s.id
                  AND status = 'sent'
                  AND sent_at > NOW() - INTERVAL '24 hours'
              ), 0) AS sent_24h
-      FROM active_senders a
+      FROM senders s
+      WHERE s.state = 'active'
+        AND s.email IN (${emailList})
     )
     SELECT id, email, sent_24h, daily_limit
     FROM counts
@@ -143,10 +145,15 @@ export async function getTotalDailyCapacity(): Promise<number> {
   const configuredEmails = loadSenderEmails();
   if (configuredEmails.length === 0) return 0;
 
+  const emailList = sql.join(
+    configuredEmails.map((e) => sql`${e}`),
+    sql`, `,
+  );
+
   const result = await db.execute<{ total: number }>(sql`
     SELECT COALESCE(SUM(daily_limit), 0)::int AS total
     FROM senders
-    WHERE state = 'active' AND email = ANY(${configuredEmails}::text[])
+    WHERE state = 'active' AND email IN (${emailList})
   `);
   return (result.rows ?? result)[0]?.total ?? 0;
 }
