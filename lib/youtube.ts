@@ -4,18 +4,21 @@
 
 const API_BASE = "https://www.googleapis.com/youtube/v3";
 
-const KEYS = [
-  process.env.YOUTUBE_API_KEY,
-  process.env.YOUTUBE_API_KEY_2,
-  process.env.YOUTUBE_API_KEY_3,
-  process.env.YOUTUBE_API_KEY_4,
-  process.env.YOUTUBE_API_KEY_5,
-  process.env.YOUTUBE_API_KEY_6,
-  process.env.YOUTUBE_API_KEY_7,
-  process.env.YOUTUBE_API_KEY_8,
-  process.env.YOUTUBE_API_KEY_9,
-  process.env.YOUTUBE_API_KEY_10,
-].filter((k): k is string => Boolean(k));
+// Reads YOUTUBE_API_KEY (legacy, no suffix) and YOUTUBE_API_KEY_1..10.
+// Preferred form is numbered (_1, _2, ...) for clarity at scale; the no-suffix
+// variant stays for backward compat with the legacy daily-outreach.mjs.
+function loadKeys(): string[] {
+  const candidates = [process.env.YOUTUBE_API_KEY];
+  for (let i = 1; i <= 10; i++) {
+    candidates.push(process.env[`YOUTUBE_API_KEY_${i}`]);
+  }
+  // Filter undefined and dedupe (in case both YOUTUBE_API_KEY and _1 are set
+  // to the same value, which is a common transition state).
+  const present = candidates.filter((k): k is string => Boolean(k));
+  return [...new Set(present)];
+}
+
+const KEYS = loadKeys();
 
 export const QUOTA_PER_KEY = 10_000;
 export const TOTAL_QUOTA = KEYS.length * QUOTA_PER_KEY;

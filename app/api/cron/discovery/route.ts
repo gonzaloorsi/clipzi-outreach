@@ -37,26 +37,28 @@ export async function GET(req: NextRequest) {
   const regions = url.searchParams.get("regions")?.split(",").filter(Boolean);
   const dryRun = url.searchParams.get("dry") === "1";
 
-  const yt = new YouTubeClient();
   const startedAt = new Date();
   const log = (msg: string) => console.log(`[discovery ${new Date().toISOString()}]`, msg);
 
-  log(`starting — keys=${yt.keyCount} totalQuota=${TOTAL_QUOTA} budget=${maxQuota} dry=${dryRun}`);
-
+  // Everything that can throw goes inside the try block so init errors surface
+  // as JSON instead of a 500 with empty body.
+  let yt: YouTubeClient;
   let runId: number | null = null;
-  if (!dryRun) {
-    const [row] = await db
-      .insert(discoveryRuns)
-      .values({
-        source: "trending",
-        params: { maxQuota, regions: regions ?? "default" },
-        startedAt,
-      })
-      .returning({ id: discoveryRuns.id });
-    runId = row.id;
-  }
-
   try {
+    yt = new YouTubeClient();
+    log(`starting — keys=${yt.keyCount} totalQuota=${TOTAL_QUOTA} budget=${maxQuota} dry=${dryRun}`);
+
+    if (!dryRun) {
+      const [row] = await db
+        .insert(discoveryRuns)
+        .values({
+          source: "trending",
+          params: { maxQuota, regions: regions ?? "default" },
+          startedAt,
+        })
+        .returning({ id: discoveryRuns.id });
+      runId = row.id;
+    }
     // ─── 1. Crawl trending ──────────────────────────────────────────────
     const trending = await crawlTrending(yt, {
       maxQuota,
@@ -127,10 +129,12 @@ export async function GET(req: NextRequest) {
     const msg = e instanceof Error ? e.message : String(e);
     const stack = e instanceof Error ? e.stack : undefined;
     log(`ERROR: ${msg}`);
+    // yt may be undefined if YouTubeClient construction itself threw
+    const quotaUsed = (yt! as YouTubeClient | undefined)?.quotaUsed ?? 0;
     if (runId !== null) {
       await db
         .update(discoveryRuns)
-        .set({ endedAt: new Date(), quotaUsed: yt.quotaUsed, error: msg })
+        .set({ endedAt: new Date(), quotaUsed, error: msg })
         .where(eq(discoveryRuns.id, runId));
     }
     return NextResponse.json(
@@ -138,7 +142,7 @@ export async function GET(req: NextRequest) {
         ok: false,
         error: msg,
         stack: process.env.NODE_ENV === "development" ? stack : undefined,
-        quotaUsed: yt.quotaUsed,
+        quotaUsed,
         wasQuotaError: e instanceof QuotaExceededError,
       },
       { status: 500 },
