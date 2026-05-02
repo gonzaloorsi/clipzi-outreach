@@ -168,6 +168,8 @@ export async function GET(req: NextRequest) {
         channelName,
         fromEmail: sender.email,
         fromName: senderName!,
+        country: c.country ?? null,
+        language: c.language ?? null,
       });
 
       if (res.ok) {
@@ -187,8 +189,8 @@ export async function GET(req: NextRequest) {
               status: "sent",
               espMessageId: res.messageId,
               sentAt: new Date(),
-              language: c.language ?? "en",
-              templateId: "v1_en",
+              language: res.language,
+              templateId: `v1_${res.language}`,
             })
             .onConflictDoNothing()
             .returning({ id: sends.id });
@@ -251,8 +253,8 @@ export async function GET(req: NextRequest) {
               senderId: sender.id,
               status: "failed",
               errorMessage: res.error,
-              language: c.language ?? "en",
-              templateId: "v1_en",
+              language: res.language,
+              templateId: `v1_${res.language}`,
             })
             .onConflictDoNothing();
         } catch {

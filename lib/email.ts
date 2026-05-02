@@ -1,11 +1,12 @@
-// Email sending helpers. Single English template for now — language detection
-// + multi-template comes when we wire up Pilar 3 (LLM personalization).
+// Email sending — routes to the right per-language template based on channel
+// country/language, then sends via Resend.
 //
-// The template is deliberately short and to-the-point: short subject, plain
-// HTML, one CTA. At cold-outreach scale, anything longer triggers spam filters
-// and gets ignored.
+// Style rule reminder: NO em-dashes (—) or en-dashes (–) in any template.
+// See lib/templates/types.ts for the full contract.
 
 import { Resend } from "resend";
+import { detectLanguage, getTemplate } from "./templates";
+import type { SupportedLanguage } from "./templates";
 
 let _client: Resend | null = null;
 function client(): Resend {
@@ -23,38 +24,34 @@ export interface SendEmailParams {
   channelName: string;
   fromEmail: string;
   fromName: string;
+  // Channel metadata for language detection
+  country: string | null;
+  language: string | null;
 }
 
 export interface SendEmailResult {
   ok: boolean;
   messageId?: string;
   error?: string;
+  language: SupportedLanguage; // which template was used (for sends.language col)
 }
 
 export function buildEmail(params: SendEmailParams): {
   subject: string;
   html: string;
+  language: SupportedLanguage;
 } {
-  const subject = `${params.channelName} x Clipzi`;
-  const html = `<p>Hi ${escape(params.channelName)} team,</p>
-<p>I run Clipzi (<a href="https://clipzi.app">clipzi.app</a>) — we turn long-form videos into clips ready for TikTok, Reels and Shorts. Upload the video, the AI finds the best moments, and you fine-tune in a visual editor.</p>
-<p>We give 2 free clips per month so you can try the flow. Paid plans for higher volume.</p>
-<p>If it sounds useful for ${escape(params.channelName)}, happy to set you up with extra credit.</p>
-<p>${escape(params.fromName)}<br/>Co-founder &amp; CEO, Clipzi</p>`;
-  return { subject, html };
-}
-
-function escape(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  const language = detectLanguage(params.country, params.language);
+  const tpl = getTemplate(language);
+  const { subject, html } = tpl({
+    channelName: params.channelName,
+    fromName: params.fromName,
+  });
+  return { subject, html, language };
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
-  const { subject, html } = buildEmail(params);
+  const { subject, html, language } = buildEmail(params);
   try {
     const { data, error } = await client().emails.send({
       from: `${params.fromName} <${params.fromEmail}>`,
@@ -63,10 +60,18 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       html,
     });
     if (error) {
-      return { ok: false, error: error.message ?? JSON.stringify(error) };
+      return {
+        ok: false,
+        error: error.message ?? JSON.stringify(error),
+        language,
+      };
     }
-    return { ok: true, messageId: data?.id };
+    return { ok: true, messageId: data?.id, language };
   } catch (e: unknown) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+      language,
+    };
   }
 }
