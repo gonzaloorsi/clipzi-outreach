@@ -1,14 +1,34 @@
 {
   "name": "clipzi-outreach",
-  "version": "1.0.0",
-  "description": "YouTube channel outreach tool for Clipzi - find channels, extract emails, send personalized outreach",
+  "version": "2.0.0",
+  "description": "YouTube channel outreach platform — discovery, enrichment, sending pipeline",
   "type": "module",
+  "private": true,
   "scripts": {
-    "fetch": "node fetch-channels.mjs",
-    "refine": "node refine-channels.mjs",
-    "filter": "node filter-local.mjs",
-    "build": "node build-final.mjs",
-    "fetch:batch2": "node fetch_batch2.mjs",
-    "send": "node send-emails.mjs"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate-from-json": "tsx db/migrate-from-json.ts",
+    "legacy:daily": "node legacy/daily-outreach.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "drizzle-orm": "^0.36.4",
+    "next": "^16.2.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.30.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
   }
 }

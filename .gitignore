@@ -1,3 +1,21 @@
 node_modules/
+.next/
+out/
+
+# env
 .env
+.env.local
+.env*.local
+.env.development.local
+.env.production.local
+
+# build artifacts
+*.tsbuildinfo
+next-env.d.ts
+
+# data
 batch2_new_channels.*
+
+# misc
+.DS_Store
+*.log
