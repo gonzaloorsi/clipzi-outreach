@@ -4,10 +4,17 @@
     {
       "path": "/api/cron/discovery",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/send",
+      "schedule": "0 * * * *"
     }
   ],
   "functions": {
     "app/api/cron/discovery/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/send/route.ts": {
       "maxDuration": 800
     }
   }

@@ -33,7 +33,10 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   // Allow query overrides for manual testing
-  const maxQuota = Number(url.searchParams.get("maxQuota")) || Math.floor(TOTAL_QUOTA * 0.6);
+  // 85% of total quota — we have 800s on Vercel Pro to spend it. The remaining
+  // 15% is a safety margin so we can do an emergency on-demand run later in the
+  // day without rotating into quota_exceeded mid-cron.
+  const maxQuota = Number(url.searchParams.get("maxQuota")) || Math.floor(TOTAL_QUOTA * 0.85);
   const regions = url.searchParams.get("regions")?.split(",").filter(Boolean);
   const dryRun = url.searchParams.get("dry") === "1";
 
