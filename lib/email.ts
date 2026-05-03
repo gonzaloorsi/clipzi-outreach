@@ -6,7 +6,7 @@
 // See lib/templates/types.ts for the full contract.
 
 import { Resend } from "resend";
-import { pickTemplate } from "./templates";
+import { pickTemplateFromDb } from "./templates";
 import type { SupportedLanguage } from "./templates";
 
 let _client: Resend | null = null;
@@ -39,13 +39,13 @@ export interface SendEmailResult {
   isAgency: boolean; // true if B2B template was used
 }
 
-export function buildEmail(params: SendEmailParams): {
+export async function buildEmail(params: SendEmailParams): Promise<{
   subject: string;
   html: string;
   language: SupportedLanguage;
   isAgency: boolean;
-} {
-  const { builder, language, isAgency } = pickTemplate({
+}> {
+  const { builder, language, isAgency } = await pickTemplateFromDb({
     country: params.country,
     language: params.language,
     discoveredVia: params.discoveredVia ?? null,
@@ -58,7 +58,7 @@ export function buildEmail(params: SendEmailParams): {
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
-  const { subject, html, language, isAgency } = buildEmail(params);
+  const { subject, html, language, isAgency } = await buildEmail(params);
   try {
     const { data, error } = await client().emails.send({
       from: `${params.fromName} <${params.fromEmail}>`,

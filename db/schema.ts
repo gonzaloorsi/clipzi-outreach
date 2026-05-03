@@ -276,6 +276,33 @@ export const queryPool = pgTable(
   }),
 );
 
+// ─── email_templates ─────────────────────────────────────────────────────
+// Editable templates. The send pipeline tries DB first, falls back to the
+// hardcoded ones in lib/templates/*.ts if a key is missing.
+//
+// Key format: "{kind}-{lang}" where kind ∈ {creator, agency} and lang ∈
+// {en, es, pt, de, fr}. Examples: creator-en, agency-es, creator-pt.
+
+export const emailTemplates = pgTable(
+  "email_templates",
+  {
+    id: serial("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    subject: text("subject").notNull(),
+    html: text("html").notNull(),
+    notes: text("notes"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    keyIdx: index("email_templates_key_idx").on(t.key),
+  }),
+);
+
 // ─── Type exports ───────────────────────────────────────────────────────────
 
 export type Channel = typeof channels.$inferSelect;
@@ -291,3 +318,5 @@ export type DiscoveryRun = typeof discoveryRuns.$inferSelect;
 export type NewDiscoveryRun = typeof discoveryRuns.$inferInsert;
 export type QueryPoolEntry = typeof queryPool.$inferSelect;
 export type NewQueryPoolEntry = typeof queryPool.$inferInsert;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type NewEmailTemplate = typeof emailTemplates.$inferInsert;

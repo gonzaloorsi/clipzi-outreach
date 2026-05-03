@@ -247,8 +247,17 @@ export default async function DashboardPage() {
           }}
         >
           <h1 style={s.h1}>Clipzi Outreach</h1>
-          <div style={{ fontSize: 13, color: c.dim }}>
-            <a href="/api/logout" style={{ color: c.dim, textDecoration: "underline" }}>
+          <div style={{ fontSize: 13, color: c.dim, display: "flex", gap: 12 }}>
+            <a
+              href="/dashboard/templates"
+              style={{ color: c.dim, textDecoration: "underline" }}
+            >
+              plantillas
+            </a>
+            <a
+              href="/api/logout"
+              style={{ color: c.dim, textDecoration: "underline" }}
+            >
               salir
             </a>
           </div>

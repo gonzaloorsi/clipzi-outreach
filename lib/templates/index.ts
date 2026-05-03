@@ -108,6 +108,9 @@ export function isAgency(discoveredVia: string | null | undefined): boolean {
  * Pick the right template (creator vs agency variant) for this row's
  * (country, language, discoveredVia). Single entry point — send route
  * uses this so it doesn't need to know about the creator/agency split.
+ *
+ * SYNC version: uses code-based templates only. Used as a fallback when
+ * the DB lookup is too expensive (e.g. tight loops, tests).
  */
 export function pickTemplate(channel: {
   country?: string | null;
@@ -120,6 +123,37 @@ export function pickTemplate(channel: {
     ? (AGENCY_TEMPLATES[language] ?? AGENCY_TEMPLATES.en ?? CREATOR_TEMPLATES.en)
     : (CREATOR_TEMPLATES[language] ?? CREATOR_TEMPLATES.en);
   return { builder, language, isAgency: agency };
+}
+
+/**
+ * ASYNC version: tries the DB-stored override first, falls back to code.
+ * The send pipeline uses this so the founder can edit copy from /dashboard
+ * without redeploying.
+ */
+export async function pickTemplateFromDb(channel: {
+  country?: string | null;
+  language?: string | null;
+  discoveredVia?: string | null;
+}): Promise<{
+  builder: TemplateBuilder;
+  language: SupportedLanguage;
+  isAgency: boolean;
+  source: "db" | "code";
+  resolvedKey: string;
+}> {
+  // Lazy import to avoid loading drizzle/db in code paths that don't need it
+  const { loadTemplateBuilder } = await import("./db-loader");
+
+  const language = detectLanguage(channel.country, channel.language);
+  const agency = isAgency(channel.discoveredVia);
+  const desiredKey = `${agency ? "agency" : "creator"}-${language}`;
+  const fallbackKey = agency ? "agency-en" : "creator-en";
+
+  const { builder, source, resolvedKey } = await loadTemplateBuilder(
+    desiredKey,
+    fallbackKey,
+  );
+  return { builder, language, isAgency: agency, source, resolvedKey };
 }
 
 export type { SupportedLanguage, TemplateInput, TemplateOutput, TemplateBuilder } from "./types";
