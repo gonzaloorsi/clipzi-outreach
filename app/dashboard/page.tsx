@@ -10,6 +10,8 @@ import {
   getDiscoveryRuns,
   getSendsBreakdown,
   getCronHeartbeat,
+  getAgencyStats,
+  getLastAgencyRun,
 } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
@@ -190,17 +192,21 @@ function countryLabel(code: string | null): string {
 // ─── Page ──────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
-  const [kpis, pipeline, recent, senders, win, runs, breakdown, heart] =
-    await Promise.all([
-      getKPIs(),
-      getPipeline(),
-      getRecentSends(15),
-      getSenderPool(),
-      Promise.resolve(getSendWindowState()),
-      getDiscoveryRuns(5),
-      getSendsBreakdown(),
-      getCronHeartbeat(),
-    ]);
+  const [
+    kpis, pipeline, recent, senders, win, runs, breakdown, heart,
+    agencyStats, lastAgencyRun,
+  ] = await Promise.all([
+    getKPIs(),
+    getPipeline(),
+    getRecentSends(15),
+    getSenderPool(),
+    Promise.resolve(getSendWindowState()),
+    getDiscoveryRuns(5),
+    getSendsBreakdown(),
+    getCronHeartbeat(),
+    getAgencyStats(),
+    getLastAgencyRun(),
+  ]);
 
   const utilization = kpis.totalDailyCapacity > 0
     ? Math.round((kpis.sent24h / kpis.totalDailyCapacity) * 100)
@@ -504,6 +510,8 @@ export default async function DashboardPage() {
         {/* SECTION 6: BÚSQUEDA */}
         <DiscoverySection runs={runs} />
 
+        <AgencySection stats={agencyStats} lastRun={lastAgencyRun} />
+
 
 
         {/* SECTION 7: MIX 7 DÍAS */}
@@ -624,7 +632,7 @@ function BreakdownCard({
 
 // ─── DiscoverySection ──────────────────────────────────────────────────
 
-import type { DiscoveryRunRow } from "@/lib/insights";
+import type { DiscoveryRunRow, AgencyStats } from "@/lib/insights";
 
 function shortError(error: string | null): string {
   if (!error) return "";
@@ -801,4 +809,217 @@ function DiscoverySection({ runs }: { runs: DiscoveryRunRow[] }) {
       )}
     </section>
   );
+}
+
+// ─── AgencySection ─────────────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<string, string> = {
+  marketing: "Marketing y publicidad",
+  communication: "Comunicación / PR",
+  "creator-management": "Manejo de creadores",
+  "community-management": "Community management",
+};
+
+function AgencySection({
+  stats,
+  lastRun,
+}: {
+  stats: AgencyStats;
+  lastRun: DiscoveryRunRow | null;
+}) {
+  const next = nextSundayUtc();
+
+  return (
+    <section style={s.section}>
+      <h2 style={s.h2}>Búsqueda de agencias</h2>
+      <p style={s.hint}>
+        Cada domingo a las 03:00 UTC consultamos Perplexity Sonar para encontrar
+        agencias de marketing, comunicación, manejo de creadores y community
+        management en 8 países, y agregamos las que tienen email público a la
+        cartera con un template B2B distinto al de creators.
+      </p>
+
+      {/* Status headline */}
+      <div style={{ ...s.card, marginBottom: 12 }}>
+        {!lastRun ? (
+          <div>
+            <span style={s.chip(c.muted)}>○ Sin corridas todavía</span>{" "}
+            <span style={{ fontSize: 13, color: c.dim }}>
+              Próxima: domingo 03:00 UTC ({fmtDuration(next.inMinutes)} restantes)
+            </span>
+          </div>
+        ) : lastRun.error ? (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.err)}>✗ Última corrida falló</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: c.text }}>
+              Motivo: {shortError(lastRun.error)}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.ok)}>● Funcionando</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                última corrida {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
+              agencias nuevas, todas entraron a la cartera.
+            </div>
+          </div>
+        )}
+        <div
+          style={{
+            fontSize: 11,
+            color: c.muted,
+            marginTop: 12,
+            paddingTop: 10,
+            borderTop: `1px solid ${c.border}`,
+          }}
+        >
+          Próxima corrida: domingo a las 03:00 UTC ({" "}
+          {fmtDuration(next.inMinutes)} ) ·{" "}
+          <strong>{stats.totalEverDiscovered.toLocaleString()}</strong>{" "}
+          agencias en la base · <strong>{stats.newLast7d}</strong> nuevas en 7d
+        </div>
+      </div>
+
+      {/* KPIs split */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={s.card}>
+          <div style={{ ...s.num, color: c.accent }}>
+            {stats.totalQueued.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            Agencias listas para enviar
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              esperan turno en el cron horario
+            </div>
+          </div>
+        </div>
+        <div style={s.card}>
+          <div style={s.num}>{stats.totalSent.toLocaleString()}</div>
+          <div style={s.numLbl}>
+            Agencias contactadas
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              {stats.sentLast7d} en últimos 7 días
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown by country and category */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por país (top 10) · cola / contactadas
+          </div>
+          {stats.byCountry.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCountry.map((row) => (
+                  <tr key={row.country}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {countryLabel(row.country)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por categoría · cola / contactadas
+          </div>
+          {stats.byCategory.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCategory.map((row) => (
+                  <tr key={row.category}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {CATEGORY_LABELS[row.category] ?? row.category}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function nextSundayUtc(): { at: Date; inMinutes: number } {
+  // Next Sunday 03:00 UTC
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay(); // 0 = Sunday
+  const daysUntilSunday = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
+  const next = new Date(now);
+  next.setUTCDate(next.getUTCDate() + daysUntilSunday);
+  next.setUTCHours(3, 0, 0, 0);
+  // If already past 03:00 UTC today (and today is Sunday), it's next Sunday
+  if (dayOfWeek === 0 && now.getUTCHours() < 3) {
+    next.setUTCDate(now.getUTCDate());
+  }
+  const inMinutes = Math.floor((next.getTime() - now.getTime()) / 60000);
+  return { at: next, inMinutes };
 }

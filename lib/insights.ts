@@ -278,6 +278,120 @@ export async function getSendsBreakdown(): Promise<SendsBreakdown> {
   };
 }
 
+// ─── Agency-specific stats (sonar:agency:* discoveredVia prefix) ────────
+
+export interface AgencyStats {
+  totalQueued: number;        // agencies in cartera ready to send
+  totalSent: number;          // agencies already contacted
+  totalEverDiscovered: number; // every agency row, regardless of status
+  newLast7d: number;          // agencies added to channels in last 7 days
+  sentLast7d: number;         // agency sends in last 7 days
+  byCountry: Array<{ country: string; queued: number; sent: number }>;
+  byCategory: Array<{ category: string; queued: number; sent: number }>;
+}
+
+export async function getAgencyStats(): Promise<AgencyStats> {
+  const result = await db.execute<{
+    total_queued: number;
+    total_sent: number;
+    total_ever: number;
+    new_7d: number;
+    sent_7d: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:agency:%' OR discovered_via LIKE 'agency:%' OR discovered_via LIKE 'legacy:agencies%'
+        AND status = 'queued') AS total_queued,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE (discovered_via LIKE 'sonar:agency:%' OR discovered_via LIKE 'agency:%' OR discovered_via LIKE 'legacy:agencies%')
+        AND status = 'sent') AS total_sent,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:agency:%' OR discovered_via LIKE 'agency:%' OR discovered_via LIKE 'legacy:agencies%') AS total_ever,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE (discovered_via LIKE 'sonar:agency:%' OR discovered_via LIKE 'agency:%' OR discovered_via LIKE 'legacy:agencies%')
+        AND created_at > NOW() - INTERVAL '7 days') AS new_7d,
+      (SELECT COUNT(*)::int FROM sends s
+        JOIN channels c ON c.id = s.channel_id
+        WHERE (c.discovered_via LIKE 'sonar:agency:%' OR c.discovered_via LIKE 'agency:%' OR c.discovered_via LIKE 'legacy:agencies%')
+        AND s.status = 'sent' AND s.sent_at > NOW() - INTERVAL '7 days') AS sent_7d
+  `);
+  const row = (result.rows ?? result)[0];
+
+  const byCountryResult = await db.execute<{
+    country: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      COALESCE(country, '?') AS country,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:agency:%' OR discovered_via LIKE 'agency:%' OR discovered_via LIKE 'legacy:agencies%'
+    GROUP BY country
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+    LIMIT 10
+  `);
+
+  // Extract category from the discoveredVia string: "sonar:agency:{country}:{category}"
+  const byCategoryResult = await db.execute<{
+    category: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      SPLIT_PART(discovered_via, ':', 4) AS category,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:agency:%'
+    GROUP BY category
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+  `);
+
+  return {
+    totalQueued: row.total_queued,
+    totalSent: row.total_sent,
+    totalEverDiscovered: row.total_ever,
+    newLast7d: row.new_7d,
+    sentLast7d: row.sent_7d,
+    byCountry: (byCountryResult.rows ?? byCountryResult).map((r) => ({
+      country: r.country,
+      queued: r.queued,
+      sent: r.sent,
+    })),
+    byCategory: (byCategoryResult.rows ?? byCategoryResult).map((r) => ({
+      category: r.category || "?",
+      queued: r.queued,
+      sent: r.sent,
+    })),
+  };
+}
+
+// Get the most recent agency-discovery cron run from discovery_runs, with
+// timing info. Used to render "Última corrida" in the dashboard.
+export async function getLastAgencyRun(): Promise<DiscoveryRunRow | null> {
+  const result = await db.execute<DiscoveryRunRow & Record<string, unknown>>(sql`
+    SELECT
+      id, source, started_at, ended_at,
+      CASE
+        WHEN ended_at IS NOT NULL
+        THEN ROUND(EXTRACT(EPOCH FROM (ended_at - started_at))::numeric, 1)::float
+        ELSE NULL
+      END AS duration_s,
+      quota_used, channels_seen, channels_new, qualified_new,
+      0::float AS freshness_pct,
+      0::float AS qualified_pct,
+      error
+    FROM discovery_runs
+    WHERE source LIKE '%agency%'
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+  const rows = result.rows ?? result;
+  return rows.length > 0 ? rows[0] : null;
+}
+
 // ─── Cron heartbeat ──────────────────────────────────────────────────────
 
 export interface CronHeartbeat {
