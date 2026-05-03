@@ -502,53 +502,9 @@ export default async function DashboardPage() {
         </section>
 
         {/* SECTION 6: BÚSQUEDA */}
-        <section style={s.section}>
-          <h2 style={s.h2}>Búsqueda de canales nuevos</h2>
-          <p style={s.hint}>
-            Cada 6 horas escaneamos YouTube por país y categoría buscando
-            creadores nuevos para sumar a la cartera.
-          </p>
-          <div style={s.card}>
-            {lastRun ? (
-              lastRun.error ? (
-                <div>
-                  <span style={s.chip(c.err)}>⚠ falló</span>{" "}
-                  <span style={{ fontSize: 13 }}>
-                    Última corrida {ago(lastRun.started_at)}
-                  </span>
-                  <div style={{ fontSize: 12, color: c.err, marginTop: 6 }}>
-                    {String(lastRun.error).slice(0, 200)}
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <span style={s.chip(c.ok)}>● funcionando</span>{" "}
-                  <span style={{ fontSize: 13 }}>
-                    Última corrida {ago(lastRun.started_at)} ·{" "}
-                    encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
-                    canales nuevos, de los cuales{" "}
-                    <strong>{lastRun.qualified_new}</strong> tienen email y
-                    pasaron el filtro de calidad.
-                  </span>
-                  {runs.length > 1 && (
-                    <div style={{ fontSize: 11, color: c.muted, marginTop: 8 }}>
-                      Últimas 5 corridas:{" "}
-                      {runs
-                        .slice(0, 5)
-                        .map(
-                          (r) =>
-                            `${r.channels_new}n→${r.qualified_new}q${r.error ? " ⚠" : ""}`,
-                        )
-                        .join(" · ")}
-                    </div>
-                  )}
-                </div>
-              )
-            ) : (
-              <em style={{ color: c.dim }}>(no hay corridas registradas)</em>
-            )}
-          </div>
-        </section>
+        <DiscoverySection runs={runs} />
+
+
 
         {/* SECTION 7: MIX 7 DÍAS */}
         <section style={s.section}>
@@ -663,5 +619,186 @@ function BreakdownCard({
         </div>
       )}
     </div>
+  );
+}
+
+// ─── DiscoverySection ──────────────────────────────────────────────────
+
+import type { DiscoveryRunRow } from "@/lib/insights";
+
+function shortError(error: string | null): string {
+  if (!error) return "";
+  // Map known errors to friendly Spanish.
+  const e = error.toLowerCase();
+  if (e.includes("value too large to transmit"))
+    return "límite de batch excedido (corregido)";
+  if (e.includes("quota")) return "quota de YouTube agotada";
+  if (e.includes("timeout")) return "timeout";
+  return error.length > 60 ? error.slice(0, 60) + "…" : error;
+}
+
+function nextDiscoveryRun(): { at: Date; inMinutes: number } {
+  // Cron: 0 */6 * * * → next 0/6/12/18 UTC hour boundary
+  const now = new Date();
+  const next = new Date(now);
+  const currentHour = now.getUTCHours();
+  const nextHour = Math.ceil((currentHour + 1) / 6) * 6;
+  if (nextHour >= 24) {
+    next.setUTCDate(next.getUTCDate() + 1);
+    next.setUTCHours(0, 0, 0, 0);
+  } else {
+    next.setUTCHours(nextHour, 0, 0, 0);
+  }
+  const inMinutes = Math.floor((next.getTime() - now.getTime()) / 60000);
+  return { at: next, inMinutes };
+}
+
+function DiscoverySection({ runs }: { runs: DiscoveryRunRow[] }) {
+  const lastRun = runs[0];
+  const next = nextDiscoveryRun();
+  const successfulRuns = runs.filter((r) => !r.error);
+  const total7d = successfulRuns.reduce(
+    (acc, r) => ({
+      newCount: acc.newCount + r.channels_new,
+      qualifiedCount: acc.qualifiedCount + r.qualified_new,
+    }),
+    { newCount: 0, qualifiedCount: 0 },
+  );
+
+  return (
+    <section style={s.section}>
+      <h2 style={s.h2}>Búsqueda de canales nuevos</h2>
+      <p style={s.hint}>
+        Cada 6 horas escaneamos YouTube buscando creadores nuevos en 70+ países
+        y agregamos los que tienen email público y pasan filtro de calidad a
+        la cartera.
+      </p>
+
+      {!lastRun ? (
+        <div style={s.card}>
+          <em style={{ color: c.dim }}>(no hay corridas registradas)</em>
+        </div>
+      ) : (
+        <>
+          {/* Status headline */}
+          <div style={{ ...s.card, marginBottom: 12 }}>
+            {lastRun.error ? (
+              <div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={s.chip(c.err)}>✗ Última corrida falló</span>{" "}
+                  <span style={{ fontSize: 13, color: c.dim }}>
+                    {ago(lastRun.started_at)}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: c.text }}>
+                  Motivo: {shortError(lastRun.error)}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={s.chip(c.ok)}>● Funcionando</span>{" "}
+                  <span style={{ fontSize: 13, color: c.dim }}>
+                    última corrida {ago(lastRun.started_at)}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                  Encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
+                  creadores nuevos. De ellos,{" "}
+                  <strong style={{ color: c.accent }}>
+                    {lastRun.qualified_new.toLocaleString()}
+                  </strong>{" "}
+                  tienen email y entraron a la cartera ({lastRun.qualified_pct}% de
+                  los nuevos).
+                </div>
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 11,
+                color: c.muted,
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: `1px solid ${c.border}`,
+              }}
+            >
+              Próxima corrida: {next.at.toISOString().slice(11, 16)} UTC ({" "}
+              {fmtDuration(next.inMinutes)} ) ·{" "}
+              <strong>{total7d.newCount.toLocaleString()}</strong> nuevos en
+              últimas {runs.length} corridas, <strong>{total7d.qualifiedCount.toLocaleString()}</strong>{" "}
+              entraron a cartera
+            </div>
+          </div>
+
+          {/* Recent runs table */}
+          <div style={s.card}>
+            <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+              Últimas {runs.length} corridas
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  <th style={s.th}>Cuándo</th>
+                  <th style={{ ...s.th, textAlign: "right" }}>Nuevos</th>
+                  <th style={{ ...s.th, textAlign: "right" }}>A cartera</th>
+                  <th style={{ ...s.th, textAlign: "right" }}>Tiempo</th>
+                  <th style={s.th}>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ ...s.td, color: c.dim, whiteSpace: "nowrap" }}>
+                      {ago(r.started_at)}
+                    </td>
+                    <td
+                      style={{
+                        ...s.td,
+                        textAlign: "right",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {r.channels_new.toLocaleString()}
+                    </td>
+                    <td
+                      style={{
+                        ...s.td,
+                        textAlign: "right",
+                        fontVariantNumeric: "tabular-nums",
+                        color: r.qualified_new > 0 ? c.accent : c.muted,
+                      }}
+                    >
+                      {r.qualified_new.toLocaleString()}
+                      {r.channels_new > 0 && (
+                        <span style={{ fontSize: 10, color: c.muted, marginLeft: 6 }}>
+                          {r.qualified_pct}%
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        ...s.td,
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {r.duration_s ? `${Math.round(r.duration_s)}s` : "—"}
+                    </td>
+                    <td style={s.td}>
+                      {r.error ? (
+                        <span style={s.chip(c.err)}>✗ {shortError(r.error)}</span>
+                      ) : (
+                        <span style={s.chip(c.ok)}>✓ ok</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
