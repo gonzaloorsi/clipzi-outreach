@@ -26,12 +26,43 @@ export interface SonarSearchResult {
   outputTokens?: number;
 }
 
+// ISO 3166-1 alpha-2 → full country name. Sonar misinterprets "AR" as Arkansas
+// when used standalone, so we always pass the full country name in prompts.
+const COUNTRY_FULL_NAMES: Record<string, string> = {
+  AR: "Argentina",
+  MX: "Mexico",
+  CO: "Colombia",
+  CL: "Chile",
+  PE: "Peru",
+  ES: "Spain",
+  BR: "Brazil",
+  US: "United States",
+  UY: "Uruguay",
+  PY: "Paraguay",
+  EC: "Ecuador",
+  VE: "Venezuela",
+  BO: "Bolivia",
+  CR: "Costa Rica",
+  PA: "Panama",
+  DO: "Dominican Republic",
+  GT: "Guatemala",
+  PR: "Puerto Rico",
+  PT: "Portugal",
+  GB: "United Kingdom",
+  CA: "Canada",
+  AU: "Australia",
+  DE: "Germany",
+  FR: "France",
+  IT: "Italy",
+  NL: "Netherlands",
+};
+
 /**
  * Build a JSON-mode prompt asking Sonar for agencies in a country/category.
  * Output schema: array of {name, website, email, city}. Email is optional —
  * we'll fall back to scraping the website when Sonar didn't surface one.
  */
-function buildPrompt(country: string, category: string, n = 20): string {
+function buildPrompt(countryCode: string, category: string, n = 20): string {
   const categoryLabel: Record<string, string> = {
     marketing: "marketing and digital marketing",
     communication: "communication, PR, and press relations",
@@ -39,7 +70,8 @@ function buildPrompt(country: string, category: string, n = 20): string {
     "community-management": "social media and community management",
   };
   const label = categoryLabel[category] ?? category;
-  return `List ${n} ${label} agencies based in ${country} that publicly list a contact email on their own website.
+  const countryName = COUNTRY_FULL_NAMES[countryCode] ?? countryCode;
+  return `List ${n} ${label} agencies headquartered in ${countryName} (the country, not a US state or region) that publicly list a contact email on their own website.
 
 Return ONLY a JSON object with this exact shape:
 {
@@ -49,9 +81,10 @@ Return ONLY a JSON object with this exact shape:
 }
 
 Strict rules:
+- The agency MUST be headquartered or have a primary office in ${countryName}.
 - "website" must be the apex domain only (no https://, no www., no path).
 - "email" must be a real email visible on the agency's site, or null.
-- Skip global holding networks unless they have a dedicated ${country} office with a local email.
+- Skip global holding networks unless they have a dedicated ${countryName} office with a local email on a country-specific subdomain.
 - Skip agencies whose only contact is a form (no public email).
 - Avoid duplicates.`;
 }
@@ -85,7 +118,8 @@ export async function searchAgencies(
         },
         { role: "user", content: prompt },
       ],
-      response_format: { type: "json_object" },
+      // Note: Sonar via AI Gateway doesn't accept response_format:json_object.
+      // We rely on the prompt + fallback regex extraction from content.
       temperature: 0,
     }),
   });
@@ -173,16 +207,27 @@ export function normalizeDomain(input: string): string | null {
 }
 
 /**
- * Common placeholder / role-based emails we want to skip when filtering.
- * Keep a separate hard-block list (Apollo-style 'noreply' addresses).
+ * Common placeholder / sample emails we want to skip when filtering.
+ * Caught two false positives early:
+ *   - sample emails on agency websites (user@domain.com, name@yourdomain.com)
+ *   - generic placeholders in templates (you@example.com)
  */
 const PLACEHOLDER_PATTERNS = [
+  // No-reply / system addresses
   /^noreply@/i,
   /^no-reply@/i,
   /^donotreply@/i,
   /^postmaster@/i,
-  /^admin@example\./i,
-  /@example\.(com|org|net)$/i,
+  /^mailer-daemon@/i,
+  // Local part placeholders
+  /^(user|name|nombre|email|correo|tu|you|your|sample|test|demo|hello|info|texto)@(domain|example|yourdomain|yourcompany|tudominio|tu-?empresa|empresa|nombredominio|company|texto)\./i,
+  // Domain placeholders (catches *@domain.com, *@example.com, *@yourdomain.com etc.)
+  /@(domain|example|yourdomain|yourcompany|tudominio|tu-?empresa|nombredominio|texto|dominio)\.(com|org|net|es|io|dominio)$/i,
+  // Bare ".dominio" TLD (Spanish placeholder convention)
+  /\.dominio$/i,
+  // Lorem ipsum-style
+  /^lorem@/i,
+  /@lorem\./i,
 ];
 
 export function isPlaceholderEmail(email: string): boolean {
