@@ -29,6 +29,7 @@ export interface SonarSearchResult {
 // ISO 3166-1 alpha-2 → full country name. Sonar misinterprets "AR" as Arkansas
 // when used standalone, so we always pass the full country name in prompts.
 const COUNTRY_FULL_NAMES: Record<string, string> = {
+  // LATAM
   AR: "Argentina",
   MX: "Mexico",
   CO: "Colombia",
@@ -36,7 +37,6 @@ const COUNTRY_FULL_NAMES: Record<string, string> = {
   PE: "Peru",
   ES: "Spain",
   BR: "Brazil",
-  US: "United States",
   UY: "Uruguay",
   PY: "Paraguay",
   EC: "Ecuador",
@@ -47,14 +47,27 @@ const COUNTRY_FULL_NAMES: Record<string, string> = {
   DO: "Dominican Republic",
   GT: "Guatemala",
   PR: "Puerto Rico",
-  PT: "Portugal",
-  GB: "United Kingdom",
+  // North America + UK
+  US: "United States",
   CA: "Canada",
-  AU: "Australia",
+  GB: "United Kingdom",
+  // Europe
+  PT: "Portugal",
   DE: "Germany",
   FR: "France",
   IT: "Italy",
   NL: "Netherlands",
+  SE: "Sweden",
+  DK: "Denmark",
+  NO: "Norway",
+  FI: "Finland",
+  IE: "Ireland",
+  // Asia-Pacific
+  IN: "India",
+  AU: "Australia",
+  NZ: "New Zealand",
+  JP: "Japan",
+  KR: "South Korea",
 };
 
 /**
@@ -68,6 +81,18 @@ function buildPrompt(countryCode: string, category: string, n = 20): string {
     communication: "communication, PR, and press relations",
     "creator-management": "creator and influencer management (talent / MCN)",
     "community-management": "social media and community management",
+    "pr-boutique":
+      "boutique PR and public relations firms (small to mid-size, specialized)",
+    "performance-marketing":
+      "performance marketing and paid advertising (Google Ads, Meta Ads, growth)",
+    "branding-studio":
+      "branding studios and brand identity / design agencies",
+    "content-production":
+      "video and audio content production studios",
+    "events-experiential":
+      "events and experiential marketing agencies",
+    "digital-transformation":
+      "digital transformation and consulting agencies",
   };
   const label = categoryLabel[category] ?? category;
   const countryName = COUNTRY_FULL_NAMES[countryCode] ?? countryCode;

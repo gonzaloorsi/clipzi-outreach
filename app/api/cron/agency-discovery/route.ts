@@ -27,13 +27,36 @@ export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 // Configurable defaults — also accepted via query param overrides.
-const DEFAULT_COUNTRIES = ["AR", "MX", "CO", "CL", "PE", "ES", "BR", "US"];
+// 30 countries × 10 categories = 300 pairs covered per day.
+// Each cron tick (4 per day, every 6 hours) processes 1/4 = 75 pairs.
+// Rotation is deterministic by UTC hour bucket so each pair runs ~daily.
+const DEFAULT_COUNTRIES = [
+  // LATAM
+  "AR", "MX", "CO", "CL", "PE", "ES", "BR", "UY", "EC", "VE", "PY", "DO",
+  // North America + UK
+  "US", "CA", "GB",
+  // Europe
+  "DE", "FR", "IT", "NL", "PT", "IE", "SE", "DK", "NO", "FI",
+  // Asia-Pacific
+  "IN", "AU", "NZ", "JP", "KR",
+];
+
 const DEFAULT_CATEGORIES = [
   "marketing",
   "communication",
   "creator-management",
   "community-management",
+  "pr-boutique",
+  "performance-marketing",
+  "branding-studio",
+  "content-production",
+  "events-experiential",
+  "digital-transformation",
 ];
+
+// Slice rotation: with 4 ticks/day (00:30, 06:30, 12:30, 18:30 UTC),
+// each tick processes a different quarter of the universe.
+const TICKS_PER_DAY = 4;
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -88,16 +111,31 @@ export async function GET(req: NextRequest) {
 
   const countries = onlyCountry ? [onlyCountry] : DEFAULT_COUNTRIES;
   const categories = onlyCategory ? [onlyCategory] : DEFAULT_CATEGORIES;
-  let pairs: Array<{ country: string; category: string }> = [];
+  const allPairs: Array<{ country: string; category: string }> = [];
   for (const c of countries) {
     for (const cat of categories) {
-      pairs.push({ country: c, category: cat });
+      allPairs.push({ country: c, category: cat });
     }
+  }
+
+  // Slice rotation: divide pairs across TICKS_PER_DAY based on UTC hour.
+  // Skip rotation when a manual filter (?country=, ?category=, ?max=) is set —
+  // those are explicit override modes for testing.
+  const useRotation = !onlyCountry && !onlyCategory && !maxPairs;
+  let pairs: Array<{ country: string; category: string }> = allPairs;
+  let sliceInfo = `all ${allPairs.length} pairs`;
+  if (useRotation) {
+    const utcHour = new Date().getUTCHours();
+    const bucket = Math.floor(utcHour / Math.ceil(24 / TICKS_PER_DAY)); // 0..3
+    const sliceSize = Math.ceil(allPairs.length / TICKS_PER_DAY);
+    const start = bucket * sliceSize;
+    pairs = allPairs.slice(start, start + sliceSize);
+    sliceInfo = `slice ${bucket + 1}/${TICKS_PER_DAY} (pairs ${start}..${start + pairs.length - 1} of ${allPairs.length})`;
   }
   if (maxPairs) pairs = pairs.slice(0, maxPairs);
 
   log(
-    `starting — dry=${dryRun} pairs=${pairs.length} countries=${countries.length} categories=${categories.length}`,
+    `starting — dry=${dryRun} ${sliceInfo} countries=${countries.length} categories=${categories.length}`,
   );
 
   const startedAt = new Date();

@@ -167,24 +167,80 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const candidates = await db
-      .select({
-        id: channels.id,
-        title: channels.title,
-        cleanName: channels.cleanName,
-        primaryEmail: channels.primaryEmail,
-        score: channels.score,
-        country: channels.country,
-        language: channels.language,
-        subscribers: channels.subscribers,
-        discoveredVia: channels.discoveredVia,
-      })
-      .from(channels)
-      .where(and(...whereClauses))
-      .orderBy(desc(channels.score))
-      .limit(max);
+    // Dual query: split picks between creators and agencies by AGENCY_SEND_RATIO.
+    // Default 20% agencies / 80% creators. The mix is forced even when one pool
+    // has more high-score candidates than the other, so agencies always get
+    // exposure proportional to the configured ratio.
+    const agencyRatio = Math.max(
+      0,
+      Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")),
+    ) / 100;
+    const agencyTarget = Math.round(max * agencyRatio);
+    const creatorTarget = max - agencyTarget;
 
-    log(`candidates picked: ${candidates.length}`);
+    // SQL fragment that matches "this row is an agency" via discovered_via prefix.
+    const isAgencyExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:agency:%'
+      OR COALESCE(${channels.discoveredVia}, '') LIKE 'agency:%'
+      OR COALESCE(${channels.discoveredVia}, '') LIKE 'legacy:agencies%'
+    )`;
+
+    const selectFields = {
+      id: channels.id,
+      title: channels.title,
+      cleanName: channels.cleanName,
+      primaryEmail: channels.primaryEmail,
+      score: channels.score,
+      country: channels.country,
+      language: channels.language,
+      subscribers: channels.subscribers,
+      discoveredVia: channels.discoveredVia,
+    };
+
+    const [creatorPool, agencyPool] = await Promise.all([
+      creatorTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, sql`NOT ${isAgencyExpr}`))
+            .orderBy(desc(channels.score))
+            .limit(creatorTarget)
+        : Promise.resolve([]),
+      agencyTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isAgencyExpr))
+            .orderBy(desc(channels.score))
+            .limit(agencyTarget)
+        : Promise.resolve([]),
+    ]);
+
+    let candidates = [...agencyPool, ...creatorPool];
+
+    // Backfill: if either pool came back short, fill the gap from the other type.
+    // E.g. agencyTarget=2 but only 0 agencies queued → fill with 2 more creators.
+    const shortage = max - candidates.length;
+    if (shortage > 0) {
+      const usedIds = new Set(candidates.map((c) => c.id));
+      // If creators were short, the OTHER side is agencies (unlikely the agencies pool helps); pick whichever side actually has surplus
+      const fillFromAgency = creatorPool.length >= creatorTarget;
+      const fillFilter = fillFromAgency ? isAgencyExpr : sql`NOT ${isAgencyExpr}`;
+      const overfetch = await db
+        .select(selectFields)
+        .from(channels)
+        .where(and(...whereClauses, fillFilter))
+        .orderBy(desc(channels.score))
+        .limit(shortage * 3); // overfetch to skip ids we already picked
+      const backfill = overfetch
+        .filter((r) => !usedIds.has(r.id))
+        .slice(0, shortage);
+      candidates = [...candidates, ...backfill];
+    }
+
+    log(
+      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies; actual: ${creatorPool.length} creators + ${agencyPool.length} agencies, +${candidates.length - creatorPool.length - agencyPool.length} backfill)`,
+    );
 
     if (candidates.length === 0) {
       return NextResponse.json({
@@ -438,6 +494,15 @@ export async function GET(req: NextRequest) {
         bypassed: ignoreWindow,
         hours: `${sendWindow.start}-${sendWindow.end}`,
         activeCountries: activeCountryList?.length ?? null,
+      },
+      mix: {
+        agencyRatioPct: agencyRatio * 100,
+        target: { creators: creatorTarget, agencies: agencyTarget },
+        actual: {
+          creators: creatorPool.length,
+          agencies: agencyPool.length,
+          backfill: candidates.length - creatorPool.length - agencyPool.length,
+        },
       },
       durationMs: Date.now() - startedAt,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",

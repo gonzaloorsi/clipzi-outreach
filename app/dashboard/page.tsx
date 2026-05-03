@@ -285,8 +285,12 @@ export default async function DashboardPage() {
         <section style={s.section}>
           <h2 style={s.h2}>Hoy</h2>
           <p style={s.hint}>
-            Lo que pasó en las últimas 24 horas. Mandamos 1 email por canal —
-            jamás repetimos.
+            Lo que pasó en las últimas 24 horas. Mandamos 1 email por canal,
+            jamás repetimos. Mix configurado:{" "}
+            {(() => {
+              const ratio = Math.max(0, Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")));
+              return `${100 - ratio}% creadores · ${ratio}% agencias`;
+            })()}.
           </p>
           <div
             style={{
