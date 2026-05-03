@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron/agency-discovery",
-      "schedule": "30 */6 * * *"
+      "schedule": "30 */3 * * *"
     }
   ],
   "functions": {

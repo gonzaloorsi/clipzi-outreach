@@ -54,9 +54,11 @@ const DEFAULT_CATEGORIES = [
   "digital-transformation",
 ];
 
-// Slice rotation: with 4 ticks/day (00:30, 06:30, 12:30, 18:30 UTC),
-// each tick processes a different quarter of the universe.
-const TICKS_PER_DAY = 4;
+// Slice rotation: with 8 ticks/day (every 3h at :30 — 00:30, 03:30, 06:30,
+// 09:30, 12:30, 15:30, 18:30, 21:30 UTC), each tick processes 1/8 of the
+// universe. With 300 pairs total → ~38 pairs/tick → ~5 min runtime, well
+// inside the 800s function cap. We had hit the cap with 75-pair slices.
+const TICKS_PER_DAY = 8;
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
