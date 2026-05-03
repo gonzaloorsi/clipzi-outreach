@@ -107,9 +107,21 @@ function fmtSubs(n: number | null): string {
   return String(n);
 }
 
+function parseTs(ts: string | null | undefined): Date | null {
+  if (!ts) return null;
+  // neon-http returns Postgres timestamps like '2026-05-03 04:19:52.923+00'.
+  // JS Date can't reliably parse '+00' as a timezone — needs '+00:00' or 'Z'.
+  const normalized = String(ts)
+    .replace(" ", "T")
+    .replace(/([+-])(\d{2})$/, "$1$2:00");
+  const t = new Date(normalized);
+  return Number.isNaN(t.getTime()) ? null : t;
+}
+
 function ago(ts: string | null): string {
   if (!ts) return "nunca";
-  const t = new Date(String(ts).replace(" ", "T"));
+  const t = parseTs(ts);
+  if (!t) return "?";
   const m = Math.floor((Date.now() - t.getTime()) / 60000);
   if (m < 1) return "ahora";
   if (m < 60) return `hace ${m} min`;
@@ -132,14 +144,33 @@ function langLabel(code: string | null): string {
 }
 
 const COUNTRY_NAMES: Record<string, string> = {
-  US: "Estados Unidos", GB: "Reino Unido", CA: "Canadá", AU: "Australia",
-  IN: "India", PH: "Filipinas", DE: "Alemania", FR: "Francia", IT: "Italia",
-  ES: "España", BR: "Brasil", MX: "México", AR: "Argentina", CO: "Colombia",
-  CL: "Chile", PE: "Perú", PT: "Portugal", NL: "Países Bajos", SE: "Suecia",
-  ID: "Indonesia", JP: "Japón", KR: "Corea", TR: "Turquía", PL: "Polonia",
-  CH: "Suiza", AT: "Austria", BE: "Bélgica", DK: "Dinamarca", FI: "Finlandia",
-  NO: "Noruega", IE: "Irlanda", NZ: "Nueva Zelanda", ZA: "Sudáfrica",
+  // Americas
+  US: "Estados Unidos", CA: "Canadá", MX: "México", BR: "Brasil",
+  AR: "Argentina", CO: "Colombia", CL: "Chile", PE: "Perú",
   EC: "Ecuador", VE: "Venezuela", UY: "Uruguay", PY: "Paraguay",
+  BO: "Bolivia", CR: "Costa Rica", CU: "Cuba", DO: "República Dominicana",
+  GT: "Guatemala", NI: "Nicaragua", PA: "Panamá", PR: "Puerto Rico",
+  SV: "El Salvador", HN: "Honduras", JM: "Jamaica", TT: "Trinidad y Tobago",
+  // Europe
+  GB: "Reino Unido", IE: "Irlanda", DE: "Alemania", FR: "Francia",
+  IT: "Italia", ES: "España", PT: "Portugal", NL: "Países Bajos",
+  BE: "Bélgica", LU: "Luxemburgo", MC: "Mónaco", CH: "Suiza", AT: "Austria",
+  SE: "Suecia", DK: "Dinamarca", FI: "Finlandia", NO: "Noruega",
+  IS: "Islandia", PL: "Polonia", CZ: "Chequia", SK: "Eslovaquia",
+  SI: "Eslovenia", HR: "Croacia", HU: "Hungría", RO: "Rumania",
+  BG: "Bulgaria", GR: "Grecia", RS: "Serbia", MT: "Malta",
+  EE: "Estonia", LT: "Lituania", LV: "Letonia", TR: "Turquía",
+  UA: "Ucrania", RU: "Rusia",
+  // Asia / Pacific
+  IN: "India", PH: "Filipinas", ID: "Indonesia", JP: "Japón",
+  KR: "Corea", CN: "China", HK: "Hong Kong", TW: "Taiwán",
+  TH: "Tailandia", VN: "Vietnam", MY: "Malasia", SG: "Singapur",
+  AE: "Emiratos Árabes", BD: "Bangladesh", PK: "Pakistán",
+  IL: "Israel", SA: "Arabia Saudita", AU: "Australia", NZ: "Nueva Zelanda",
+  // Africa
+  EG: "Egipto", KE: "Kenia", GH: "Ghana", NG: "Nigeria",
+  MA: "Marruecos", ZA: "Sudáfrica", SN: "Senegal", CI: "Costa de Marfil",
+  AO: "Angola", MZ: "Mozambique",
 };
 
 function countryLabel(code: string | null): string {
@@ -174,8 +205,9 @@ export default async function DashboardPage() {
   const noEmail = pipeline.find((p) => p.status === "no_email")?.cnt ?? 0;
 
   // System health
-  const lastSendMinutesAgo = heart.lastSendAt
-    ? Math.floor((Date.now() - new Date(String(heart.lastSendAt).replace(" ", "T")).getTime()) / 60000)
+  const lastSendTime = parseTs(heart.lastSendAt);
+  const lastSendMinutesAgo = lastSendTime
+    ? Math.floor((Date.now() - lastSendTime.getTime()) / 60000)
     : Infinity;
   const lastRun = runs[0];
   const discoveryHealthy = lastRun && !lastRun.error;
@@ -589,7 +621,8 @@ function BreakdownCard({
               <span>{r.label}</span>
               <span style={{ color: c.dim, fontVariantNumeric: "tabular-nums" }}>
                 {r.cnt}
-                <span style={{ fontSize: 10, color: c.muted, marginLeft: 6 }}>
+                {" "}
+                <span style={{ fontSize: 10, color: c.muted }}>
                   {pct.toFixed(0)}%
                 </span>
               </span>
