@@ -126,8 +126,17 @@ function ago(ts: string | null): string {
   if (m < 1) return "ahora";
   if (m < 60) return `hace ${m} min`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `hace ${h}h`;
+  if (h < 24) return `hace ${fmtDuration(m)}`;
   return `hace ${Math.floor(h / 24)}d`;
+}
+
+// Format minute count as "Xh Ym" or "Xh" or "Ym".
+function fmtDuration(totalMinutes: number): string {
+  if (totalMinutes < 1) return "menos de 1m";
+  if (totalMinutes < 60) return `${totalMinutes}m`;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
 function langLabel(code: string | null): string {
@@ -247,7 +256,9 @@ export default async function DashboardPage() {
           ) : (
             <span>
               <span style={{ color: c.warn }}>⚠ </span>
-              {!sendHealthy && <>Sin envíos hace {lastSendMinutesAgo}m. </>}
+              {!sendHealthy && (
+                <>Sin envíos hace {fmtDuration(lastSendMinutesAgo)}. </>
+              )}
               {!discoveryHealthy && lastRun?.error && (
                 <>Discovery falló: {String(lastRun.error).slice(0, 80)}</>
               )}
