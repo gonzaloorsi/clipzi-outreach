@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/send",
       "schedule": "19 * * * *"
+    },
+    {
+      "path": "/api/cron/agency-discovery",
+      "schedule": "0 3 * * 0"
     }
   ],
   "functions": {
@@ -15,6 +19,9 @@
       "maxDuration": 800
     },
     "app/api/cron/send/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/agency-discovery/route.ts": {
       "maxDuration": 800
     }
   }

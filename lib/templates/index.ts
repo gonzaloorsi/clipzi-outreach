@@ -13,13 +13,24 @@ import { build as buildEs } from "./es";
 import { build as buildPt } from "./pt";
 import { build as buildDe } from "./de";
 import { build as buildFr } from "./fr";
+// B2B agency variants — only en/es/pt for now. Other languages fall back
+// to agency-en (still better than the creator template for an agency).
+import { build as buildAgencyEn } from "./agency-en";
+import { build as buildAgencyEs } from "./agency-es";
+import { build as buildAgencyPt } from "./agency-pt";
 
-const TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
+const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
   es: buildEs,
   pt: buildPt,
   de: buildDe,
   fr: buildFr,
+};
+
+const AGENCY_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildAgencyEn,
+  es: buildAgencyEs,
+  pt: buildAgencyPt,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -73,11 +84,42 @@ export function detectLanguage(
 }
 
 /**
- * Get the template builder for a language.
+ * Get the creator-facing template builder for a language.
  * Always returns something (en if the requested lang is unsupported).
  */
 export function getTemplate(lang: SupportedLanguage): TemplateBuilder {
-  return TEMPLATES[lang] ?? TEMPLATES.en;
+  return CREATOR_TEMPLATES[lang] ?? CREATOR_TEMPLATES.en;
+}
+
+/**
+ * Decide whether a channel row should be treated as an AGENCY (B2B template)
+ * or a CREATOR (default template), based on how it was discovered.
+ */
+export function isAgency(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return (
+    discoveredVia.startsWith("sonar:agency:") ||
+    discoveredVia.startsWith("agency:") ||
+    discoveredVia.startsWith("legacy:agencies")
+  );
+}
+
+/**
+ * Pick the right template (creator vs agency variant) for this row's
+ * (country, language, discoveredVia). Single entry point — send route
+ * uses this so it doesn't need to know about the creator/agency split.
+ */
+export function pickTemplate(channel: {
+  country?: string | null;
+  language?: string | null;
+  discoveredVia?: string | null;
+}): { builder: TemplateBuilder; language: SupportedLanguage; isAgency: boolean } {
+  const language = detectLanguage(channel.country, channel.language);
+  const agency = isAgency(channel.discoveredVia);
+  const builder = agency
+    ? (AGENCY_TEMPLATES[language] ?? AGENCY_TEMPLATES.en ?? CREATOR_TEMPLATES.en)
+    : (CREATOR_TEMPLATES[language] ?? CREATOR_TEMPLATES.en);
+  return { builder, language, isAgency: agency };
 }
 
 export type { SupportedLanguage, TemplateInput, TemplateOutput, TemplateBuilder } from "./types";

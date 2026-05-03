@@ -177,6 +177,7 @@ export async function GET(req: NextRequest) {
         country: channels.country,
         language: channels.language,
         subscribers: channels.subscribers,
+        discoveredVia: channels.discoveredVia,
       })
       .from(channels)
       .where(and(...whereClauses))
@@ -253,6 +254,7 @@ export async function GET(req: NextRequest) {
         fromName: senderName!,
         country: c.country ?? null,
         language: c.language ?? null,
+        discoveredVia: c.discoveredVia ?? null,
       });
 
       if (res.ok) {
@@ -273,7 +275,7 @@ export async function GET(req: NextRequest) {
               espMessageId: res.messageId,
               sentAt: new Date(),
               language: res.language,
-              templateId: `v1_${res.language}`,
+              templateId: `v1_${res.isAgency ? "agency_" : ""}${res.language}`,
             })
             .onConflictDoNothing()
             .returning({ id: sends.id });
@@ -331,7 +333,7 @@ export async function GET(req: NextRequest) {
               status: "failed",
               errorMessage: res.error,
               language: res.language,
-              templateId: `v1_${res.language}`,
+              templateId: `v1_${res.isAgency ? "agency_" : ""}${res.language}`,
             })
             .onConflictDoNothing();
         } catch {
