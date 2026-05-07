@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/standup-discovery",
       "schedule": "15 */3 * * *"
+    },
+    {
+      "path": "/api/cron/media-org-discovery",
+      "schedule": "45 */3 * * *"
     }
   ],
   "functions": {
@@ -29,6 +33,9 @@
       "maxDuration": 800
     },
     "app/api/cron/standup-discovery/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/media-org-discovery/route.ts": {
       "maxDuration": 800
     }
   }

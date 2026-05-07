@@ -14,6 +14,8 @@ import {
   getLastAgencyRun,
   getStandupStats,
   getLastStandupRun,
+  getMediaOrgStats,
+  getLastMediaOrgRun,
 } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
@@ -197,6 +199,7 @@ export default async function DashboardPage() {
   const [
     kpis, pipeline, recent, senders, win, runs, breakdown, heart,
     agencyStats, lastAgencyRun, standupStats, lastStandupRun,
+    mediaOrgStats, lastMediaOrgRun,
   ] = await Promise.all([
     getKPIs(),
     getPipeline(),
@@ -210,6 +213,8 @@ export default async function DashboardPage() {
     getLastAgencyRun(),
     getStandupStats(),
     getLastStandupRun(),
+    getMediaOrgStats(),
+    getLastMediaOrgRun(),
   ]);
 
   const utilization = kpis.totalDailyCapacity > 0
@@ -294,8 +299,9 @@ export default async function DashboardPage() {
             {(() => {
               const agency = Math.max(0, Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")));
               const standup = Math.max(0, Math.min(100, Number(process.env.STANDUP_SEND_RATIO ?? "10")));
-              const creator = Math.max(0, 100 - agency - standup);
-              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup`;
+              const mediaOrg = Math.max(0, Math.min(100, Number(process.env.MEDIA_ORG_SEND_RATIO ?? "10")));
+              const creator = Math.max(0, 100 - agency - standup - mediaOrg);
+              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup · ${mediaOrg}% media-org`;
             })()}.
           </p>
           <div
@@ -533,6 +539,8 @@ export default async function DashboardPage() {
 
         <StandupSection stats={standupStats} lastRun={lastStandupRun} />
 
+        <MediaOrgSection stats={mediaOrgStats} lastRun={lastMediaOrgRun} />
+
 
 
         {/* SECTION 7: MIX 7 DÍAS */}
@@ -653,7 +661,7 @@ function BreakdownCard({
 
 // ─── DiscoverySection ──────────────────────────────────────────────────
 
-import type { DiscoveryRunRow, AgencyStats, StandupStats } from "@/lib/insights";
+import type { DiscoveryRunRow, AgencyStats, StandupStats, MediaOrgStats } from "@/lib/insights";
 
 function shortError(error: string | null): string {
   if (!error) return "";
@@ -1241,6 +1249,219 @@ function StandupSection({
                   <tr key={row.category}>
                     <td style={{ padding: "4px 8px" }}>
                       {STANDUP_CATEGORY_LABELS[row.category] ?? row.category}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── MediaOrgSection ───────────────────────────────────────────────────
+
+const MEDIA_ORG_CATEGORY_LABELS: Record<string, string> = {
+  "streaming-tv": "Streaming TV",
+  "radio-station": "Radios",
+  "podcast-network": "Networks de podcast",
+  "internet-radio": "Radios online",
+};
+
+function nextMediaOrgRun(): { at: Date; inMinutes: number } {
+  // Cron `45 */3 * * *` → next xx:45 UTC where xx is a multiple of 3
+  const now = new Date();
+  const next = new Date(now);
+  const currentHour = now.getUTCHours();
+  const currentMinute = now.getUTCMinutes();
+  const onSlot = currentHour % 3 === 0 && currentMinute < 45;
+  const nextHour = onSlot
+    ? currentHour
+    : Math.ceil((currentHour + 1) / 3) * 3;
+  if (nextHour >= 24) {
+    next.setUTCDate(next.getUTCDate() + 1);
+    next.setUTCHours(0, 45, 0, 0);
+  } else {
+    next.setUTCHours(nextHour, 45, 0, 0);
+  }
+  const inMinutes = Math.floor((next.getTime() - now.getTime()) / 60000);
+  return { at: next, inMinutes };
+}
+
+function MediaOrgSection({
+  stats,
+  lastRun,
+}: {
+  stats: MediaOrgStats;
+  lastRun: DiscoveryRunRow | null;
+}) {
+  const next = nextMediaOrgRun();
+
+  return (
+    <section style={s.section}>
+      <h2 style={s.h2}>Búsqueda de medios (radio/podcast/stream)</h2>
+      <p style={s.hint}>
+        Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar
+        radios, networks de podcast y canales de streaming-TV (tipo Olga, Luzu,
+        Vorterix) en 9 países LATAM-pesados. Pitch B2B unificado para
+        organizaciones que ya producen contenido grabado y necesitan clipear.
+      </p>
+
+      <div style={{ ...s.card, marginBottom: 12 }}>
+        {!lastRun ? (
+          <div>
+            <span style={s.chip(c.muted)}>○ Sin corridas todavía</span>{" "}
+            <span style={{ fontSize: 13, color: c.dim }}>
+              Próxima: {next.at.toISOString().slice(11, 16)} UTC ({fmtDuration(next.inMinutes)} restantes)
+            </span>
+          </div>
+        ) : lastRun.error ? (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.err)}>✗ Última corrida falló</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: c.text }}>
+              Motivo: {shortError(lastRun.error)}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.ok)}>● Funcionando</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                última corrida {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
+              entradas nuevas, todas entraron a la cartera.
+            </div>
+          </div>
+        )}
+        <div
+          style={{
+            fontSize: 11,
+            color: c.muted,
+            marginTop: 12,
+            paddingTop: 10,
+            borderTop: `1px solid ${c.border}`,
+          }}
+        >
+          Próxima corrida: {next.at.toISOString().slice(11, 16)} UTC ({fmtDuration(next.inMinutes)}) ·{" "}
+          <strong>{stats.totalEverDiscovered.toLocaleString()}</strong>{" "}
+          en la base · <strong>{stats.newLast7d}</strong> nuevas en 7d
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={s.card}>
+          <div style={{ ...s.num, color: c.accent }}>
+            {stats.totalQueued.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            Medios en cola
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              esperan turno en el cron horario
+            </div>
+          </div>
+        </div>
+        <div style={s.card}>
+          <div style={s.num}>{stats.totalSent.toLocaleString()}</div>
+          <div style={s.numLbl}>
+            Medios contactados
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              {stats.sentLast7d} en últimos 7 días
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por país (top 10) · cola / contactadas
+          </div>
+          {stats.byCountry.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCountry.map((row) => (
+                  <tr key={row.country}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {countryLabel(row.country)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por categoría · cola / contactadas
+          </div>
+          {stats.byCategory.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCategory.map((row) => (
+                  <tr key={row.category}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {MEDIA_ORG_CATEGORY_LABELS[row.category] ?? row.category}
                     </td>
                     <td
                       style={{

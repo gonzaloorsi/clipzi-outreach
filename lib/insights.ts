@@ -542,6 +542,117 @@ export async function getLastStandupRun(): Promise<DiscoveryRunRow | null> {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// ─── Media-org-specific stats (sonar:media-org:* prefix) ────────────────
+
+export interface MediaOrgStats {
+  totalQueued: number;
+  totalSent: number;
+  totalEverDiscovered: number;
+  newLast7d: number;
+  sentLast7d: number;
+  byCountry: Array<{ country: string; queued: number; sent: number }>;
+  byCategory: Array<{ category: string; queued: number; sent: number }>;
+}
+
+export async function getMediaOrgStats(): Promise<MediaOrgStats> {
+  const summary = await db.execute<{
+    total_queued: number;
+    total_sent: number;
+    total_ever: number;
+    new_7d: number;
+    sent_7d: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:media-org:%' AND status = 'queued') AS total_queued,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:media-org:%' AND status = 'sent') AS total_sent,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:media-org:%') AS total_ever,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:media-org:%'
+        AND created_at > NOW() - INTERVAL '7 days') AS new_7d,
+      (SELECT COUNT(*)::int FROM sends s
+        JOIN channels c ON c.id = s.channel_id
+        WHERE c.discovered_via LIKE 'sonar:media-org:%'
+        AND s.status = 'sent' AND s.sent_at > NOW() - INTERVAL '7 days') AS sent_7d
+  `);
+  const row = (summary.rows ?? summary)[0];
+
+  const byCountryResult = await db.execute<{
+    country: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      COALESCE(country, '?') AS country,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:media-org:%'
+    GROUP BY country
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+    LIMIT 10
+  `);
+
+  // discoveredVia layout: sonar:media-org:{country}:{category}. Category is
+  // SPLIT_PART index 4 (1-indexed in PG).
+  const byCategoryResult = await db.execute<{
+    category: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      SPLIT_PART(discovered_via, ':', 4) AS category,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:media-org:%'
+    GROUP BY category
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+  `);
+
+  return {
+    totalQueued: row.total_queued,
+    totalSent: row.total_sent,
+    totalEverDiscovered: row.total_ever,
+    newLast7d: row.new_7d,
+    sentLast7d: row.sent_7d,
+    byCountry: (byCountryResult.rows ?? byCountryResult).map((r) => ({
+      country: r.country,
+      queued: r.queued,
+      sent: r.sent,
+    })),
+    byCategory: (byCategoryResult.rows ?? byCategoryResult).map((r) => ({
+      category: r.category || "?",
+      queued: r.queued,
+      sent: r.sent,
+    })),
+  };
+}
+
+export async function getLastMediaOrgRun(): Promise<DiscoveryRunRow | null> {
+  const result = await db.execute<DiscoveryRunRow & Record<string, unknown>>(sql`
+    SELECT
+      id, source, started_at, ended_at,
+      CASE
+        WHEN ended_at IS NOT NULL
+        THEN ROUND(EXTRACT(EPOCH FROM (ended_at - started_at))::numeric, 1)::float
+        ELSE NULL
+      END AS duration_s,
+      quota_used, channels_seen, channels_new, qualified_new,
+      0::float AS freshness_pct,
+      0::float AS qualified_pct,
+      error
+    FROM discovery_runs
+    WHERE source LIKE '%media-org%'
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+  const rows = result.rows ?? result;
+  return rows.length > 0 ? rows[0] : null;
+}
+
 // ─── Cron heartbeat ──────────────────────────────────────────────────────
 
 export interface CronHeartbeat {

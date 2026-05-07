@@ -26,6 +26,12 @@ import { build as buildStandupIndividualPt } from "./standup-individual-pt";
 import { build as buildStandupOrgEn } from "./standup-org-en";
 import { build as buildStandupOrgEs } from "./standup-org-es";
 import { build as buildStandupOrgPt } from "./standup-org-pt";
+// Media-org variant — radios, podcast networks, streaming-TV channels (B2B).
+// No individual sibling — the individuals (Rogan, hosts, streamers) come in via
+// creator-discovery on YouTube.
+import { build as buildMediaOrgEn } from "./media-org-en";
+import { build as buildMediaOrgEs } from "./media-org-es";
+import { build as buildMediaOrgPt } from "./media-org-pt";
 
 const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
@@ -51,6 +57,12 @@ const STANDUP_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>>
   en: buildStandupOrgEn,
   es: buildStandupOrgEs,
   pt: buildStandupOrgPt,
+};
+
+const MEDIA_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildMediaOrgEn,
+  es: buildMediaOrgEs,
+  pt: buildMediaOrgPt,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -134,15 +146,22 @@ export function isStandupOrg(discoveredVia: string | null | undefined): boolean 
   return discoveredVia.startsWith("sonar:standup-org:");
 }
 
+export function isMediaOrg(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:media-org:");
+}
+
 export type TemplateKind =
   | "creator"
   | "agency"
   | "standup-individual"
-  | "standup-org";
+  | "standup-org"
+  | "media-org";
 
 export function detectKind(discoveredVia: string | null | undefined): TemplateKind {
   if (isStandupIndividual(discoveredVia)) return "standup-individual";
   if (isStandupOrg(discoveredVia)) return "standup-org";
+  if (isMediaOrg(discoveredVia)) return "media-org";
   if (isAgency(discoveredVia)) return "agency";
   return "creator";
 }
@@ -162,6 +181,12 @@ function builderForKind(
       return (
         STANDUP_ORG_TEMPLATES[language] ??
         STANDUP_ORG_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "media-org":
+      return (
+        MEDIA_ORG_TEMPLATES[language] ??
+        MEDIA_ORG_TEMPLATES.en ??
         CREATOR_TEMPLATES.en
       );
     case "agency":

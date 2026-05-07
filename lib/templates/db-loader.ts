@@ -30,6 +30,9 @@ import { build as standupIndividualPt } from "./standup-individual-pt";
 import { build as standupOrgEn } from "./standup-org-en";
 import { build as standupOrgEs } from "./standup-org-es";
 import { build as standupOrgPt } from "./standup-org-pt";
+import { build as mediaOrgEn } from "./media-org-en";
+import { build as mediaOrgEs } from "./media-org-es";
+import { build as mediaOrgPt } from "./media-org-pt";
 
 const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "creator-en": creatorEn,
@@ -46,6 +49,9 @@ const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "standup-org-en": standupOrgEn,
   "standup-org-es": standupOrgEs,
   "standup-org-pt": standupOrgPt,
+  "media-org-en": mediaOrgEn,
+  "media-org-es": mediaOrgEs,
+  "media-org-pt": mediaOrgPt,
 };
 
 export interface TemplateRow {

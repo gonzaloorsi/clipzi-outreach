@@ -167,10 +167,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Three-way split: creators / agencies / standup.
-    // AGENCY_SEND_RATIO default 20, STANDUP_SEND_RATIO default 10, creators = remainder.
-    // Ratios are clamped to 0-100 individually; if their sum exceeds 100 we
-    // proportionally scale them so creators get at least 0.
+    // Four-way split: creators / agencies / standup / media-org.
+    // AGENCY_SEND_RATIO default 20, STANDUP_SEND_RATIO default 10,
+    // MEDIA_ORG_SEND_RATIO default 10, creators = remainder.
+    // Ratios clamped 0-100 each. If their sum exceeds 100 we proportionally
+    // scale the three slot ratios so creators get at least 0.
     const agencyPctRaw = Math.max(
       0,
       Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")),
@@ -179,18 +180,30 @@ export async function GET(req: NextRequest) {
       0,
       Math.min(100, Number(process.env.STANDUP_SEND_RATIO ?? "10")),
     );
+    const mediaOrgPctRaw = Math.max(
+      0,
+      Math.min(100, Number(process.env.MEDIA_ORG_SEND_RATIO ?? "10")),
+    );
     let agencyPct = agencyPctRaw;
     let standupPct = standupPctRaw;
-    if (agencyPct + standupPct > 100) {
-      const scale = 100 / (agencyPct + standupPct);
-      agencyPct = agencyPct * scale;
-      standupPct = standupPct * scale;
+    let mediaOrgPct = mediaOrgPctRaw;
+    const sumPct = agencyPct + standupPct + mediaOrgPct;
+    if (sumPct > 100) {
+      const scale = 100 / sumPct;
+      agencyPct *= scale;
+      standupPct *= scale;
+      mediaOrgPct *= scale;
     }
     const agencyRatio = agencyPct / 100;
     const standupRatio = standupPct / 100;
+    const mediaOrgRatio = mediaOrgPct / 100;
     const agencyTarget = Math.round(max * agencyRatio);
     const standupTarget = Math.round(max * standupRatio);
-    const creatorTarget = Math.max(0, max - agencyTarget - standupTarget);
+    const mediaOrgTarget = Math.round(max * mediaOrgRatio);
+    const creatorTarget = Math.max(
+      0,
+      max - agencyTarget - standupTarget - mediaOrgTarget,
+    );
 
     const isAgencyExpr = sql`(
       COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:agency:%'
@@ -201,9 +214,12 @@ export async function GET(req: NextRequest) {
       COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:standup-individual:%'
       OR COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:standup-org:%'
     )`;
-    // Creator = neither agency nor standup. Required because "NOT agency" alone
-    // would now sweep standup rows into the creator pool.
-    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr})`;
+    const isMediaOrgExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:media-org:%'
+    )`;
+    // Creator = none of the named verticals. Required because "NOT agency"
+    // alone would sweep standup/media-org rows into the creator pool.
+    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr})`;
 
     const selectFields = {
       id: channels.id,
@@ -217,7 +233,7 @@ export async function GET(req: NextRequest) {
       discoveredVia: channels.discoveredVia,
     };
 
-    const [creatorPool, agencyPool, standupPool] = await Promise.all([
+    const [creatorPool, agencyPool, standupPool, mediaOrgPool] = await Promise.all([
       creatorTarget > 0
         ? db
             .select(selectFields)
@@ -242,14 +258,20 @@ export async function GET(req: NextRequest) {
             .orderBy(desc(channels.score))
             .limit(standupTarget)
         : Promise.resolve([]),
+      mediaOrgTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isMediaOrgExpr))
+            .orderBy(desc(channels.score))
+            .limit(mediaOrgTarget)
+        : Promise.resolve([]),
     ]);
 
-    let candidates = [...agencyPool, ...standupPool, ...creatorPool];
+    // Concat order: B2B verticals first (agency, standup, media-org), creators last.
+    let candidates = [...agencyPool, ...standupPool, ...mediaOrgPool, ...creatorPool];
 
-    // Backfill: if any pool came back short, fill from the other types' surplus.
-    // We don't track per-pool shortage individually because the ordering of the
-    // three queries already exhausts each pool's available rows. Just fill the
-    // total deficit from any non-targeted bucket.
+    // Backfill: any deficit is filled from the broader pool (any kind not yet picked).
     const shortage = max - candidates.length;
     if (shortage > 0) {
       const usedIds = new Set(candidates.map((c) => c.id));
@@ -266,7 +288,7 @@ export async function GET(req: NextRequest) {
     }
 
     log(
-      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup; actual: ${creatorPool.length} creators + ${agencyPool.length} agencies + ${standupPool.length} standup, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length)} backfill)`,
+      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length)} backfill)`,
     );
 
     if (candidates.length === 0) {
@@ -525,21 +547,25 @@ export async function GET(req: NextRequest) {
       mix: {
         agencyRatioPct: agencyRatio * 100,
         standupRatioPct: standupRatio * 100,
+        mediaOrgRatioPct: mediaOrgRatio * 100,
         target: {
           creators: creatorTarget,
           agencies: agencyTarget,
           standup: standupTarget,
+          mediaOrg: mediaOrgTarget,
         },
         actual: {
           creators: creatorPool.length,
           agencies: agencyPool.length,
           standup: standupPool.length,
+          mediaOrg: mediaOrgPool.length,
           backfill: Math.max(
             0,
             candidates.length -
               creatorPool.length -
               agencyPool.length -
-              standupPool.length,
+              standupPool.length -
+              mediaOrgPool.length,
           ),
         },
       },

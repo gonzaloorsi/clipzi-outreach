@@ -24,14 +24,22 @@ const KIND_LABEL: Record<string, string> = {
   agency: "Agencia (B2B)",
   "standup-individual": "Standup individual (B2C)",
   "standup-org": "Standup org (B2B)",
+  "media-org": "Medios (radio/podcast/stream) (B2B)",
 };
 
-const KIND_ORDER = ["creator", "agency", "standup-individual", "standup-org"] as const;
+const KIND_ORDER = [
+  "creator",
+  "agency",
+  "standup-individual",
+  "standup-org",
+  "media-org",
+] as const;
 type Kind = (typeof KIND_ORDER)[number];
 
 function kindOf(key: string): Kind {
   if (key.startsWith("standup-individual-")) return "standup-individual";
   if (key.startsWith("standup-org-")) return "standup-org";
+  if (key.startsWith("media-org-")) return "media-org";
   if (key.startsWith("agency-")) return "agency";
   return "creator";
 }
@@ -59,12 +67,13 @@ function fmtTs(ts: Date | string | null | undefined): string {
 export default async function TemplatesListPage() {
   const all = await listAllTemplates();
 
-  // Group by kind (creator / agency / standup-individual / standup-org)
+  // Group by kind
   const grouped: Record<Kind, typeof all> = {
     creator: [],
     agency: [],
     "standup-individual": [],
     "standup-org": [],
+    "media-org": [],
   };
   for (const t of all) {
     grouped[kindOf(t.key)].push(t);
