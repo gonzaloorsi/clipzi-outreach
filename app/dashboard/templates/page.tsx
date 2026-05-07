@@ -22,7 +22,24 @@ const c = {
 const KIND_LABEL: Record<string, string> = {
   creator: "Creador (B2C)",
   agency: "Agencia (B2B)",
+  "standup-individual": "Standup individual (B2C)",
+  "standup-org": "Standup org (B2B)",
 };
+
+const KIND_ORDER = ["creator", "agency", "standup-individual", "standup-org"] as const;
+type Kind = (typeof KIND_ORDER)[number];
+
+function kindOf(key: string): Kind {
+  if (key.startsWith("standup-individual-")) return "standup-individual";
+  if (key.startsWith("standup-org-")) return "standup-org";
+  if (key.startsWith("agency-")) return "agency";
+  return "creator";
+}
+
+function langFromKey(key: string): string {
+  // Last segment after the final "-" is the lang code.
+  return key.split("-").pop() ?? "?";
+}
 
 const LANG_LABEL: Record<string, string> = {
   en: "Inglés",
@@ -42,11 +59,15 @@ function fmtTs(ts: Date | string | null | undefined): string {
 export default async function TemplatesListPage() {
   const all = await listAllTemplates();
 
-  // Group by kind (creator / agency)
-  const grouped: Record<string, typeof all> = { creator: [], agency: [] };
+  // Group by kind (creator / agency / standup-individual / standup-org)
+  const grouped: Record<Kind, typeof all> = {
+    creator: [],
+    agency: [],
+    "standup-individual": [],
+    "standup-org": [],
+  };
   for (const t of all) {
-    const kind = t.key.startsWith("agency-") ? "agency" : "creator";
-    grouped[kind].push(t);
+    grouped[kindOf(t.key)].push(t);
   }
 
   return (
@@ -92,7 +113,7 @@ export default async function TemplatesListPage() {
         <code>{"{fromName}"}</code>.
       </p>
 
-      {(["creator", "agency"] as const).map((kind) => (
+      {KIND_ORDER.map((kind) => (
         <section key={kind} style={{ marginBottom: "2rem" }}>
           <h2
             style={{
@@ -112,7 +133,7 @@ export default async function TemplatesListPage() {
             }}
           >
             {grouped[kind].map((t, idx) => {
-              const lang = t.key.split("-")[1] ?? "?";
+              const lang = langFromKey(t.key);
               return (
                 <Link
                   key={t.key}

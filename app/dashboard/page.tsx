@@ -12,6 +12,8 @@ import {
   getCronHeartbeat,
   getAgencyStats,
   getLastAgencyRun,
+  getStandupStats,
+  getLastStandupRun,
 } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
@@ -194,7 +196,7 @@ function countryLabel(code: string | null): string {
 export default async function DashboardPage() {
   const [
     kpis, pipeline, recent, senders, win, runs, breakdown, heart,
-    agencyStats, lastAgencyRun,
+    agencyStats, lastAgencyRun, standupStats, lastStandupRun,
   ] = await Promise.all([
     getKPIs(),
     getPipeline(),
@@ -206,6 +208,8 @@ export default async function DashboardPage() {
     getCronHeartbeat(),
     getAgencyStats(),
     getLastAgencyRun(),
+    getStandupStats(),
+    getLastStandupRun(),
   ]);
 
   const utilization = kpis.totalDailyCapacity > 0
@@ -288,8 +292,10 @@ export default async function DashboardPage() {
             Lo que pasó en las últimas 24 horas. Mandamos 1 email por canal,
             jamás repetimos. Mix configurado:{" "}
             {(() => {
-              const ratio = Math.max(0, Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")));
-              return `${100 - ratio}% creadores · ${ratio}% agencias`;
+              const agency = Math.max(0, Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")));
+              const standup = Math.max(0, Math.min(100, Number(process.env.STANDUP_SEND_RATIO ?? "10")));
+              const creator = Math.max(0, 100 - agency - standup);
+              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup`;
             })()}.
           </p>
           <div
@@ -525,6 +531,8 @@ export default async function DashboardPage() {
 
         <AgencySection stats={agencyStats} lastRun={lastAgencyRun} />
 
+        <StandupSection stats={standupStats} lastRun={lastStandupRun} />
+
 
 
         {/* SECTION 7: MIX 7 DÍAS */}
@@ -645,7 +653,7 @@ function BreakdownCard({
 
 // ─── DiscoverySection ──────────────────────────────────────────────────
 
-import type { DiscoveryRunRow, AgencyStats } from "@/lib/insights";
+import type { DiscoveryRunRow, AgencyStats, StandupStats } from "@/lib/insights";
 
 function shortError(error: string | null): string {
   if (!error) return "";
@@ -1035,4 +1043,232 @@ function nextSundayUtc(): { at: Date; inMinutes: number } {
   }
   const inMinutes = Math.floor((next.getTime() - now.getTime()) / 60000);
   return { at: next, inMinutes };
+}
+
+// ─── StandupSection ────────────────────────────────────────────────────
+
+const STANDUP_CATEGORY_LABELS: Record<string, string> = {
+  comedian: "Comediantes individuales",
+  school: "Escuelas",
+  club: "Clubs / venues",
+  festival: "Festivales",
+  "production-company": "Productoras",
+};
+
+function nextStandupRun(): { at: Date; inMinutes: number } {
+  // Cron `15 */3 * * *` → next xx:15 UTC where xx is a multiple of 3
+  const now = new Date();
+  const next = new Date(now);
+  const currentHour = now.getUTCHours();
+  const currentMinute = now.getUTCMinutes();
+  const onSlot = currentHour % 3 === 0 && currentMinute < 15;
+  const nextHour = onSlot
+    ? currentHour
+    : Math.ceil((currentHour + 1) / 3) * 3;
+  if (nextHour >= 24) {
+    next.setUTCDate(next.getUTCDate() + 1);
+    next.setUTCHours(0, 15, 0, 0);
+  } else {
+    next.setUTCHours(nextHour, 15, 0, 0);
+  }
+  const inMinutes = Math.floor((next.getTime() - now.getTime()) / 60000);
+  return { at: next, inMinutes };
+}
+
+function StandupSection({
+  stats,
+  lastRun,
+}: {
+  stats: StandupStats;
+  lastRun: DiscoveryRunRow | null;
+}) {
+  const next = nextStandupRun();
+
+  return (
+    <section style={s.section}>
+      <h2 style={s.h2}>Búsqueda de standup</h2>
+      <p style={s.hint}>
+        Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar
+        comediantes individuales y orgs de stand-up (escuelas, clubs, festivales,
+        productoras) en 21 países. Cubrimos toda la grilla a lo largo del día y
+        agregamos las que tienen email público con templates dedicados al nicho.
+      </p>
+
+      {/* Status headline */}
+      <div style={{ ...s.card, marginBottom: 12 }}>
+        {!lastRun ? (
+          <div>
+            <span style={s.chip(c.muted)}>○ Sin corridas todavía</span>{" "}
+            <span style={{ fontSize: 13, color: c.dim }}>
+              Próxima: {next.at.toISOString().slice(11, 16)} UTC ({fmtDuration(next.inMinutes)} restantes)
+            </span>
+          </div>
+        ) : lastRun.error ? (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.err)}>✗ Última corrida falló</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: c.text }}>
+              Motivo: {shortError(lastRun.error)}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.ok)}>● Funcionando</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                última corrida {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
+              entradas nuevas, todas entraron a la cartera.
+            </div>
+          </div>
+        )}
+        <div
+          style={{
+            fontSize: 11,
+            color: c.muted,
+            marginTop: 12,
+            paddingTop: 10,
+            borderTop: `1px solid ${c.border}`,
+          }}
+        >
+          Próxima corrida: {next.at.toISOString().slice(11, 16)} UTC ({fmtDuration(next.inMinutes)}) ·{" "}
+          <strong>{stats.totalEverDiscovered.toLocaleString()}</strong>{" "}
+          en la base · <strong>{stats.newLast7d}</strong> nuevas en 7d
+        </div>
+      </div>
+
+      {/* KPIs split — individuos vs orgs */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={s.card}>
+          <div style={{ ...s.num, color: c.accent }}>
+            {stats.byKind.individual.queued.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            Comediantes en cola
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              {stats.byKind.individual.sent.toLocaleString()} contactados
+            </div>
+          </div>
+        </div>
+        <div style={s.card}>
+          <div style={{ ...s.num, color: c.accent }}>
+            {stats.byKind.org.queued.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            Orgs en cola (clubs, escuelas, etc.)
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              {stats.byKind.org.sent.toLocaleString()} contactadas
+            </div>
+          </div>
+        </div>
+        <div style={s.card}>
+          <div style={s.num}>{stats.totalSent.toLocaleString()}</div>
+          <div style={s.numLbl}>
+            Total contactados
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              {stats.sentLast7d} en últimos 7 días
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown by country and category */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por país (top 10) · cola / contactadas
+          </div>
+          {stats.byCountry.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCountry.map((row) => (
+                  <tr key={row.country}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {countryLabel(row.country)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por categoría · cola / contactadas
+          </div>
+          {stats.byCategory.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCategory.map((row) => (
+                  <tr key={row.category}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {STANDUP_CATEGORY_LABELS[row.category] ?? row.category}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }

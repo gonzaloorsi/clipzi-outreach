@@ -392,6 +392,152 @@ export async function getLastAgencyRun(): Promise<DiscoveryRunRow | null> {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// ─── Standup-specific stats (sonar:standup-{individual,org}:* prefix) ────
+
+export interface StandupStats {
+  totalQueued: number;
+  totalSent: number;
+  totalEverDiscovered: number;
+  newLast7d: number;
+  sentLast7d: number;
+  byKind: { individual: { queued: number; sent: number }; org: { queued: number; sent: number } };
+  byCountry: Array<{ country: string; queued: number; sent: number }>;
+  byCategory: Array<{ category: string; queued: number; sent: number }>;
+}
+
+// Common WHERE fragment in raw SQL for "this row is a standup row".
+// We can't import a fragment as a variable across queries here without
+// drizzle's `sql` tag, so it's inlined per query below.
+export async function getStandupStats(): Promise<StandupStats> {
+  const summary = await db.execute<{
+    total_queued: number;
+    total_sent: number;
+    total_ever: number;
+    new_7d: number;
+    sent_7d: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM channels
+        WHERE (discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%')
+        AND status = 'queued') AS total_queued,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE (discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%')
+        AND status = 'sent') AS total_sent,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%') AS total_ever,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE (discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%')
+        AND created_at > NOW() - INTERVAL '7 days') AS new_7d,
+      (SELECT COUNT(*)::int FROM sends s
+        JOIN channels c ON c.id = s.channel_id
+        WHERE (c.discovered_via LIKE 'sonar:standup-individual:%' OR c.discovered_via LIKE 'sonar:standup-org:%')
+        AND s.status = 'sent' AND s.sent_at > NOW() - INTERVAL '7 days') AS sent_7d
+  `);
+  const row = (summary.rows ?? summary)[0];
+
+  const kindResult = await db.execute<{
+    kind: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      CASE
+        WHEN discovered_via LIKE 'sonar:standup-individual:%' THEN 'individual'
+        WHEN discovered_via LIKE 'sonar:standup-org:%' THEN 'org'
+        ELSE 'unknown'
+      END AS kind,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%'
+    GROUP BY kind
+  `);
+  const kindRows = kindResult.rows ?? kindResult;
+  const byKind = {
+    individual: { queued: 0, sent: 0 },
+    org: { queued: 0, sent: 0 },
+  };
+  for (const r of kindRows) {
+    if (r.kind === "individual" || r.kind === "org") {
+      byKind[r.kind] = { queued: r.queued, sent: r.sent };
+    }
+  }
+
+  const byCountryResult = await db.execute<{
+    country: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      COALESCE(country, '?') AS country,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%'
+    GROUP BY country
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+    LIMIT 10
+  `);
+
+  // discoveredVia layout: sonar:standup-{ind|org}:{country}:{category}
+  // Category is split-part 4 (1-indexed in PG).
+  const byCategoryResult = await db.execute<{
+    category: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      SPLIT_PART(discovered_via, ':', 4) AS category,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE 'sonar:standup-individual:%' OR discovered_via LIKE 'sonar:standup-org:%'
+    GROUP BY category
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+  `);
+
+  return {
+    totalQueued: row.total_queued,
+    totalSent: row.total_sent,
+    totalEverDiscovered: row.total_ever,
+    newLast7d: row.new_7d,
+    sentLast7d: row.sent_7d,
+    byKind,
+    byCountry: (byCountryResult.rows ?? byCountryResult).map((r) => ({
+      country: r.country,
+      queued: r.queued,
+      sent: r.sent,
+    })),
+    byCategory: (byCategoryResult.rows ?? byCategoryResult).map((r) => ({
+      category: r.category || "?",
+      queued: r.queued,
+      sent: r.sent,
+    })),
+  };
+}
+
+export async function getLastStandupRun(): Promise<DiscoveryRunRow | null> {
+  const result = await db.execute<DiscoveryRunRow & Record<string, unknown>>(sql`
+    SELECT
+      id, source, started_at, ended_at,
+      CASE
+        WHEN ended_at IS NOT NULL
+        THEN ROUND(EXTRACT(EPOCH FROM (ended_at - started_at))::numeric, 1)::float
+        ELSE NULL
+      END AS duration_s,
+      quota_used, channels_seen, channels_new, qualified_new,
+      0::float AS freshness_pct,
+      0::float AS qualified_pct,
+      error
+    FROM discovery_runs
+    WHERE source LIKE '%standup%'
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+  const rows = result.rows ?? result;
+  return rows.length > 0 ? rows[0] : null;
+}
+
 // ─── Cron heartbeat ──────────────────────────────────────────────────────
 
 export interface CronHeartbeat {

@@ -18,6 +18,14 @@ import { build as buildFr } from "./fr";
 import { build as buildAgencyEn } from "./agency-en";
 import { build as buildAgencyEs } from "./agency-es";
 import { build as buildAgencyPt } from "./agency-pt";
+// Standup variants — split into individual (B2C) vs org (B2B). Same lang coverage
+// as agency: en/es/pt with en fallback for the rest.
+import { build as buildStandupIndividualEn } from "./standup-individual-en";
+import { build as buildStandupIndividualEs } from "./standup-individual-es";
+import { build as buildStandupIndividualPt } from "./standup-individual-pt";
+import { build as buildStandupOrgEn } from "./standup-org-en";
+import { build as buildStandupOrgEs } from "./standup-org-es";
+import { build as buildStandupOrgPt } from "./standup-org-pt";
 
 const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
@@ -31,6 +39,18 @@ const AGENCY_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
   en: buildAgencyEn,
   es: buildAgencyEs,
   pt: buildAgencyPt,
+};
+
+const STANDUP_INDIVIDUAL_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildStandupIndividualEn,
+  es: buildStandupIndividualEs,
+  pt: buildStandupIndividualPt,
+};
+
+const STANDUP_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildStandupOrgEn,
+  es: buildStandupOrgEs,
+  pt: buildStandupOrgPt,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -104,10 +124,62 @@ export function isAgency(discoveredVia: string | null | undefined): boolean {
   );
 }
 
+export function isStandupIndividual(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:standup-individual:");
+}
+
+export function isStandupOrg(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:standup-org:");
+}
+
+export type TemplateKind =
+  | "creator"
+  | "agency"
+  | "standup-individual"
+  | "standup-org";
+
+export function detectKind(discoveredVia: string | null | undefined): TemplateKind {
+  if (isStandupIndividual(discoveredVia)) return "standup-individual";
+  if (isStandupOrg(discoveredVia)) return "standup-org";
+  if (isAgency(discoveredVia)) return "agency";
+  return "creator";
+}
+
+function builderForKind(
+  kind: TemplateKind,
+  language: SupportedLanguage,
+): TemplateBuilder {
+  switch (kind) {
+    case "standup-individual":
+      return (
+        STANDUP_INDIVIDUAL_TEMPLATES[language] ??
+        STANDUP_INDIVIDUAL_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "standup-org":
+      return (
+        STANDUP_ORG_TEMPLATES[language] ??
+        STANDUP_ORG_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "agency":
+      return (
+        AGENCY_TEMPLATES[language] ??
+        AGENCY_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "creator":
+    default:
+      return CREATOR_TEMPLATES[language] ?? CREATOR_TEMPLATES.en;
+  }
+}
+
 /**
- * Pick the right template (creator vs agency variant) for this row's
- * (country, language, discoveredVia). Single entry point — send route
- * uses this so it doesn't need to know about the creator/agency split.
+ * Pick the right template (creator / agency / standup-individual / standup-org)
+ * for this row's (country, language, discoveredVia). Single entry point — send
+ * route uses this so it doesn't need to know about the variant split.
  *
  * SYNC version: uses code-based templates only. Used as a fallback when
  * the DB lookup is too expensive (e.g. tight loops, tests).
@@ -116,13 +188,16 @@ export function pickTemplate(channel: {
   country?: string | null;
   language?: string | null;
   discoveredVia?: string | null;
-}): { builder: TemplateBuilder; language: SupportedLanguage; isAgency: boolean } {
+}): {
+  builder: TemplateBuilder;
+  language: SupportedLanguage;
+  kind: TemplateKind;
+  isAgency: boolean;
+} {
   const language = detectLanguage(channel.country, channel.language);
-  const agency = isAgency(channel.discoveredVia);
-  const builder = agency
-    ? (AGENCY_TEMPLATES[language] ?? AGENCY_TEMPLATES.en ?? CREATOR_TEMPLATES.en)
-    : (CREATOR_TEMPLATES[language] ?? CREATOR_TEMPLATES.en);
-  return { builder, language, isAgency: agency };
+  const kind = detectKind(channel.discoveredVia);
+  const builder = builderForKind(kind, language);
+  return { builder, language, kind, isAgency: kind === "agency" };
 }
 
 /**
@@ -137,6 +212,7 @@ export async function pickTemplateFromDb(channel: {
 }): Promise<{
   builder: TemplateBuilder;
   language: SupportedLanguage;
+  kind: TemplateKind;
   isAgency: boolean;
   source: "db" | "code";
   resolvedKey: string;
@@ -145,15 +221,22 @@ export async function pickTemplateFromDb(channel: {
   const { loadTemplateBuilder } = await import("./db-loader");
 
   const language = detectLanguage(channel.country, channel.language);
-  const agency = isAgency(channel.discoveredVia);
-  const desiredKey = `${agency ? "agency" : "creator"}-${language}`;
-  const fallbackKey = agency ? "agency-en" : "creator-en";
+  const kind = detectKind(channel.discoveredVia);
+  const desiredKey = `${kind}-${language}`;
+  const fallbackKey = `${kind}-en`;
 
   const { builder, source, resolvedKey } = await loadTemplateBuilder(
     desiredKey,
     fallbackKey,
   );
-  return { builder, language, isAgency: agency, source, resolvedKey };
+  return {
+    builder,
+    language,
+    kind,
+    isAgency: kind === "agency",
+    source,
+    resolvedKey,
+  };
 }
 
 export type { SupportedLanguage, TemplateInput, TemplateOutput, TemplateBuilder } from "./types";

@@ -167,23 +167,43 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Dual query: split picks between creators and agencies by AGENCY_SEND_RATIO.
-    // Default 20% agencies / 80% creators. The mix is forced even when one pool
-    // has more high-score candidates than the other, so agencies always get
-    // exposure proportional to the configured ratio.
-    const agencyRatio = Math.max(
+    // Three-way split: creators / agencies / standup.
+    // AGENCY_SEND_RATIO default 20, STANDUP_SEND_RATIO default 10, creators = remainder.
+    // Ratios are clamped to 0-100 individually; if their sum exceeds 100 we
+    // proportionally scale them so creators get at least 0.
+    const agencyPctRaw = Math.max(
       0,
       Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")),
-    ) / 100;
+    );
+    const standupPctRaw = Math.max(
+      0,
+      Math.min(100, Number(process.env.STANDUP_SEND_RATIO ?? "10")),
+    );
+    let agencyPct = agencyPctRaw;
+    let standupPct = standupPctRaw;
+    if (agencyPct + standupPct > 100) {
+      const scale = 100 / (agencyPct + standupPct);
+      agencyPct = agencyPct * scale;
+      standupPct = standupPct * scale;
+    }
+    const agencyRatio = agencyPct / 100;
+    const standupRatio = standupPct / 100;
     const agencyTarget = Math.round(max * agencyRatio);
-    const creatorTarget = max - agencyTarget;
+    const standupTarget = Math.round(max * standupRatio);
+    const creatorTarget = Math.max(0, max - agencyTarget - standupTarget);
 
-    // SQL fragment that matches "this row is an agency" via discovered_via prefix.
     const isAgencyExpr = sql`(
       COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:agency:%'
       OR COALESCE(${channels.discoveredVia}, '') LIKE 'agency:%'
       OR COALESCE(${channels.discoveredVia}, '') LIKE 'legacy:agencies%'
     )`;
+    const isStandupExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:standup-individual:%'
+      OR COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:standup-org:%'
+    )`;
+    // Creator = neither agency nor standup. Required because "NOT agency" alone
+    // would now sweep standup rows into the creator pool.
+    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr})`;
 
     const selectFields = {
       id: channels.id,
@@ -197,12 +217,12 @@ export async function GET(req: NextRequest) {
       discoveredVia: channels.discoveredVia,
     };
 
-    const [creatorPool, agencyPool] = await Promise.all([
+    const [creatorPool, agencyPool, standupPool] = await Promise.all([
       creatorTarget > 0
         ? db
             .select(selectFields)
             .from(channels)
-            .where(and(...whereClauses, sql`NOT ${isAgencyExpr}`))
+            .where(and(...whereClauses, isCreatorExpr))
             .orderBy(desc(channels.score))
             .limit(creatorTarget)
         : Promise.resolve([]),
@@ -214,24 +234,31 @@ export async function GET(req: NextRequest) {
             .orderBy(desc(channels.score))
             .limit(agencyTarget)
         : Promise.resolve([]),
+      standupTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isStandupExpr))
+            .orderBy(desc(channels.score))
+            .limit(standupTarget)
+        : Promise.resolve([]),
     ]);
 
-    let candidates = [...agencyPool, ...creatorPool];
+    let candidates = [...agencyPool, ...standupPool, ...creatorPool];
 
-    // Backfill: if either pool came back short, fill the gap from the other type.
-    // E.g. agencyTarget=2 but only 0 agencies queued → fill with 2 more creators.
+    // Backfill: if any pool came back short, fill from the other types' surplus.
+    // We don't track per-pool shortage individually because the ordering of the
+    // three queries already exhausts each pool's available rows. Just fill the
+    // total deficit from any non-targeted bucket.
     const shortage = max - candidates.length;
     if (shortage > 0) {
       const usedIds = new Set(candidates.map((c) => c.id));
-      // If creators were short, the OTHER side is agencies (unlikely the agencies pool helps); pick whichever side actually has surplus
-      const fillFromAgency = creatorPool.length >= creatorTarget;
-      const fillFilter = fillFromAgency ? isAgencyExpr : sql`NOT ${isAgencyExpr}`;
       const overfetch = await db
         .select(selectFields)
         .from(channels)
-        .where(and(...whereClauses, fillFilter))
+        .where(and(...whereClauses))
         .orderBy(desc(channels.score))
-        .limit(shortage * 3); // overfetch to skip ids we already picked
+        .limit((shortage + candidates.length) * 2);
       const backfill = overfetch
         .filter((r) => !usedIds.has(r.id))
         .slice(0, shortage);
@@ -239,7 +266,7 @@ export async function GET(req: NextRequest) {
     }
 
     log(
-      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies; actual: ${creatorPool.length} creators + ${agencyPool.length} agencies, +${candidates.length - creatorPool.length - agencyPool.length} backfill)`,
+      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup; actual: ${creatorPool.length} creators + ${agencyPool.length} agencies + ${standupPool.length} standup, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length)} backfill)`,
     );
 
     if (candidates.length === 0) {
@@ -331,7 +358,7 @@ export async function GET(req: NextRequest) {
               espMessageId: res.messageId,
               sentAt: new Date(),
               language: res.language,
-              templateId: `v1_${res.isAgency ? "agency_" : ""}${res.language}`,
+              templateId: `v1_${res.kind.replace(/-/g, "_")}_${res.language}`,
             })
             .onConflictDoNothing()
             .returning({ id: sends.id });
@@ -389,7 +416,7 @@ export async function GET(req: NextRequest) {
               status: "failed",
               errorMessage: res.error,
               language: res.language,
-              templateId: `v1_${res.isAgency ? "agency_" : ""}${res.language}`,
+              templateId: `v1_${res.kind.replace(/-/g, "_")}_${res.language}`,
             })
             .onConflictDoNothing();
         } catch {
@@ -497,11 +524,23 @@ export async function GET(req: NextRequest) {
       },
       mix: {
         agencyRatioPct: agencyRatio * 100,
-        target: { creators: creatorTarget, agencies: agencyTarget },
+        standupRatioPct: standupRatio * 100,
+        target: {
+          creators: creatorTarget,
+          agencies: agencyTarget,
+          standup: standupTarget,
+        },
         actual: {
           creators: creatorPool.length,
           agencies: agencyPool.length,
-          backfill: candidates.length - creatorPool.length - agencyPool.length,
+          standup: standupPool.length,
+          backfill: Math.max(
+            0,
+            candidates.length -
+              creatorPool.length -
+              agencyPool.length -
+              standupPool.length,
+          ),
         },
       },
       durationMs: Date.now() - startedAt,
