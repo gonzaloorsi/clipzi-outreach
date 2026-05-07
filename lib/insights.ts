@@ -212,6 +212,9 @@ export interface DiscoveryRunRow {
 }
 
 export async function getDiscoveryRuns(limit = 10): Promise<DiscoveryRunRow[]> {
+  // Filtered to source='trending' on purpose. The "Búsqueda de canales nuevos"
+  // section in the dashboard is about the YouTube creator crawler, not agency
+  // or standup discovery (those each have their own dedicated section).
   const result = await db.execute<DiscoveryRunRow & Record<string, unknown>>(sql`
     SELECT
       id,
@@ -237,6 +240,7 @@ export async function getDiscoveryRuns(limit = 10): Promise<DiscoveryRunRow[]> {
       END AS qualified_pct,
       error
     FROM discovery_runs
+    WHERE source = 'trending'
     ORDER BY id DESC
     LIMIT ${limit}
   `);

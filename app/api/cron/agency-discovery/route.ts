@@ -60,6 +60,12 @@ const DEFAULT_CATEGORIES = [
 // inside the 800s function cap. We had hit the cap with 75-pair slices.
 const TICKS_PER_DAY = 8;
 
+// Cap how many sites we scrape per pair when Sonar didn't return an email.
+// Without this, a pair where Sonar returns 15 entries with 10 missing emails
+// would do 10 scrapes × ~10s each = 100s, blowing past the function cap when
+// summed across 38 pairs in a slice. Same pattern as standup-discovery.
+const MAX_SCRAPES_PER_PAIR = 5;
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return process.env.NODE_ENV !== "production";
@@ -261,23 +267,31 @@ async function runOnePair({
     if (!byDomain.has(a.website)) byDomain.set(a.website, a);
   }
 
-  // 3. For agencies without email from Sonar, fetch site & extract
+  // 3. Pass 1: keep entries that already have a usable email from Sonar.
+  //    Pass 2: scrape entries without one, capped to MAX_SCRAPES_PER_PAIR so
+  //    one bad pair (10+ scrapes with timeouts) can't blow the function cap.
   const enriched: Array<AgencyResult & { extractedEmails?: string[] }> = [];
+  const needScrape: AgencyResult[] = [];
   for (const a of byDomain.values()) {
     result.domainsTried++;
     if (a.email && !isPlaceholderEmail(a.email)) {
       enriched.push(a);
       result.emailsFound++;
-      continue;
+    } else {
+      needScrape.push(a);
     }
-    // fallback to scraping
+  }
+  for (const a of needScrape.slice(0, MAX_SCRAPES_PER_PAIR)) {
     const { emails } = await fetchAgencyEmails(a.website);
     if (emails.length > 0) {
       enriched.push({ ...a, email: emails[0], extractedEmails: emails });
       result.emailsFound++;
-    } else {
-      // skip — can't email without an email
     }
+  }
+  if (needScrape.length > MAX_SCRAPES_PER_PAIR) {
+    log(
+      `  capped scrapes: ${MAX_SCRAPES_PER_PAIR} of ${needScrape.length} entries needed scrape (rest skipped)`,
+    );
   }
 
   log(`  emails found: ${result.emailsFound}/${result.domainsTried}`);
