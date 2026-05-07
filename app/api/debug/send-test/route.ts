@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
   const list = url.searchParams.get("list") === "1";
   const to = url.searchParams.get("to");
   const fromParam = url.searchParams.get("from")?.trim().toLowerCase();
+  // bypass=1 skips the configured-senders check so you can test from a domain
+  // that's verified in Resend but NOT in SENDER_EMAIL_1..N. Auth still required.
+  // Resend itself rejects sends from unverified domains, so this is safe at the
+  // sender side. Use only for diagnostics — never send real outreach this way.
+  const bypassValidation = url.searchParams.get("bypass") === "1";
   const kind = url.searchParams.get("kind") ?? "creator";
   const lang = url.searchParams.get("lang") ?? "es";
   const channelName = url.searchParams.get("channelName") ?? "Demo Channel";
@@ -96,7 +101,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (configuredSenders.length === 0) {
+  if (configuredSenders.length === 0 && !(bypassValidation && fromParam)) {
     return NextResponse.json(
       {
         ok: false,
@@ -105,21 +110,27 @@ export async function GET(req: NextRequest) {
       { status: 500 },
     );
   }
-  // Pick sender: explicit ?from= must match one in the configured set, else
-  // default to the first configured sender. We validate to prevent the endpoint
-  // from being used to spoof an arbitrary From: address.
+  // Pick sender: explicit ?from= must match one in the configured set unless
+  // ?bypass=1 is also set (auth still required). Default to the first
+  // configured sender when ?from= isn't given. Validation prevents accidental
+  // spoofing; bypass is for diagnostics on test-only domains.
   let fromEmail: string;
   if (fromParam) {
-    if (!configuredSenders.includes(fromParam)) {
+    if (!configuredSenders.includes(fromParam) && !bypassValidation) {
       return NextResponse.json(
         {
           ok: false,
-          error: `from="${fromParam}" is not configured. Configured senders: ${configuredSenders.join(", ")}`,
+          error: `from="${fromParam}" is not configured. Configured senders: ${configuredSenders.join(", ")}. Pass &bypass=1 to override (test only).`,
         },
         { status: 400 },
       );
     }
     fromEmail = fromParam;
+    if (bypassValidation && !configuredSenders.includes(fromParam)) {
+      console.warn(
+        `[debug/send-test] bypass=1: sending from unconfigured sender ${fromParam}`,
+      );
+    }
   } else {
     fromEmail = configuredSenders[0];
   }
