@@ -8,15 +8,20 @@
 //
 // Query params:
 //   ?to=<email>             (required)  destinatario
+//   ?from=<email>           default SENDER_EMAIL_1   pick which sender (must be in SENDER_EMAIL_1..10)
 //   ?kind=<kind>            default creator   creator|agency|standup-individual|standup-org|media-org
 //   ?lang=<lang>            default es        es|en|pt|de|fr
 //   ?channelName=<name>     default "Demo Channel"
+//
+// Listing helpers:
+//   ?list=1                 returns the configured senders + kinds + langs without sending anything
 //
 // Returns JSON with the Resend messageId, the template kind/language actually
 // used, and the sender + recipient. NO writes to DB.
 
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
+import { loadSenderEmails } from "@/lib/sender-pool";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -47,10 +52,27 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
+  const list = url.searchParams.get("list") === "1";
   const to = url.searchParams.get("to");
+  const fromParam = url.searchParams.get("from")?.trim().toLowerCase();
   const kind = url.searchParams.get("kind") ?? "creator";
   const lang = url.searchParams.get("lang") ?? "es";
   const channelName = url.searchParams.get("channelName") ?? "Demo Channel";
+
+  // Loading the configured senders helps with both validation AND the ?list=1
+  // mode that returns the discovery payload for the operator.
+  const configuredSenders = loadSenderEmails();
+
+  if (list) {
+    return NextResponse.json({
+      ok: true,
+      mode: "list",
+      senders: configuredSenders,
+      defaultSender: configuredSenders[0] ?? null,
+      kinds: Object.keys(KIND_TO_DISCOVERED_VIA),
+      langs: [...VALID_LANGS],
+    });
+  }
 
   if (!to) {
     return NextResponse.json(
@@ -74,14 +96,35 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const fromEmail = process.env.SENDER_EMAIL_1 ?? process.env.SENDER_EMAIL ?? "";
-  const fromName = process.env.SENDER_NAME ?? "Clipzi";
-  if (!fromEmail) {
+  if (configuredSenders.length === 0) {
     return NextResponse.json(
-      { ok: false, error: "SENDER_EMAIL_1 / SENDER_EMAIL not configured" },
+      {
+        ok: false,
+        error: "no SENDER_EMAIL_1..10 / SENDER_EMAIL configured in env",
+      },
       { status: 500 },
     );
   }
+  // Pick sender: explicit ?from= must match one in the configured set, else
+  // default to the first configured sender. We validate to prevent the endpoint
+  // from being used to spoof an arbitrary From: address.
+  let fromEmail: string;
+  if (fromParam) {
+    if (!configuredSenders.includes(fromParam)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `from="${fromParam}" is not configured. Configured senders: ${configuredSenders.join(", ")}`,
+        },
+        { status: 400 },
+      );
+    }
+    fromEmail = fromParam;
+  } else {
+    fromEmail = configuredSenders[0];
+  }
+
+  const fromName = process.env.SENDER_NAME ?? "Clipzi";
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json(
       { ok: false, error: "RESEND_API_KEY not configured" },
