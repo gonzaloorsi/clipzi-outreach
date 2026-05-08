@@ -161,15 +161,22 @@ export async function verifyEmail(email: string): Promise<BouncerResult> {
  *     accepted because most creators use free providers.
  *   - `undeliverable` → ✗ (invalid syntax / dead domain / mailbox doesn't exist)
  *   - `unknown` → ✗ (couldn't verify; safer to skip and retry later)
+ *
+ * EXCEPTION — fail-open when Bouncer isn't actually consulted:
+ *   If the API key isn't configured (BOUNCER_API_KEY missing), we want the
+ *   pipeline to behave AS IF Bouncer didn't exist (preserve pre-integration
+ *   behavior). Otherwise deploying the code without the env var would silently
+ *   demote every new email to low_quality and freeze the discovery → send flow.
  */
 export function isSafeToSend(result: BouncerResult): boolean {
+  if (result.reason === "no_api_key") return true; // fail-open
   if (result.status === "deliverable") return true;
   if (result.status === "risky") {
     if (result.disposable) return false;
     if (result.fullMailbox) return false;
     return true;
   }
-  return false; // undeliverable | unknown
+  return false; // undeliverable | unknown (timeouts, dns errors, etc. stay conservative)
 }
 
 /**
