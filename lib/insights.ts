@@ -138,6 +138,7 @@ export interface SenderRow {
   id: number;
   email: string;
   state: string;
+  paused_reason: string | null;
   daily_limit: number;
   sent_total: number;
   sent_24h: number;
@@ -151,6 +152,7 @@ export async function getSenderPool(): Promise<SenderRow[]> {
       s.id,
       s.email,
       s.state::text AS state,
+      s.paused_reason,
       s.daily_limit,
       s.sent_total,
       COALESCE((
@@ -161,7 +163,7 @@ export async function getSenderPool(): Promise<SenderRow[]> {
       s.last_used_at,
       s.reputation_score
     FROM senders s
-    ORDER BY s.id
+    ORDER BY s.state, s.id
   `);
   return result.rows ?? result;
 }

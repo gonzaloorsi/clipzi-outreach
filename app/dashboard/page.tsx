@@ -404,6 +404,7 @@ export default async function DashboardPage() {
               <thead>
                 <tr>
                   <th style={s.th}>Email</th>
+                  <th style={s.th}>Estado</th>
                   <th style={{ ...s.th, textAlign: "right" }}>Hoy</th>
                   <th style={{ ...s.th, textAlign: "right" }}>Histórico</th>
                   <th style={s.th}>Último envío</th>
@@ -412,9 +413,32 @@ export default async function DashboardPage() {
               <tbody>
                 {senders.map((sd) => {
                   const pct = sd.daily_limit > 0 ? (sd.sent_24h / sd.daily_limit) * 100 : 0;
+                  const isPaused = sd.state === "paused";
+                  const isBurned = sd.state === "burned";
+                  const isWarming = sd.state === "warming" || sd.state === "provisioning";
+                  const dimmed = isPaused || isBurned;
+                  const stateChip = isPaused
+                    ? s.chip(c.muted)
+                    : isBurned
+                      ? s.chip(c.err)
+                      : isWarming
+                        ? s.chip(c.warn)
+                        : s.chip(c.ok);
+                  const stateLabel = isPaused
+                    ? "⏸ pausado"
+                    : isBurned
+                      ? "✗ quemado"
+                      : isWarming
+                        ? "◐ warmup"
+                        : "● activo";
                   return (
-                    <tr key={sd.id}>
+                    <tr key={sd.id} style={dimmed ? { opacity: 0.5 } : undefined}>
                       <td style={s.td}>{sd.email}</td>
+                      <td style={s.td}>
+                        <span style={stateChip} title={sd.paused_reason ?? undefined}>
+                          {stateLabel}
+                        </span>
+                      </td>
                       <td
                         style={{
                           ...s.td,
