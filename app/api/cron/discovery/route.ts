@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       : await enrichChannels(yt, newIds, { source: "trending" });
     if (enrichResult) {
       log(
-        `enriched: ${enrichResult.enriched}/${enrichResult.processed}, queued=${enrichResult.queued}, no_email=${enrichResult.noEmail}, low_quality=${enrichResult.lowQuality}, quota=${enrichResult.quotaUsed}`,
+        `enriched: ${enrichResult.enriched}/${enrichResult.processed}, queued=${enrichResult.queued}, no_email=${enrichResult.noEmail}, low_quality=${enrichResult.lowQuality}, invalid_email=${enrichResult.invalidEmail}, quota=${enrichResult.quotaUsed}`,
       );
     }
 

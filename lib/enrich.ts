@@ -6,6 +6,7 @@ import { db } from "../db/client";
 import { channels } from "../db/schema";
 import type { YouTubeClient, YtChannelsResult } from "./youtube";
 import { scoreChannel, meetsThreshold } from "./score";
+import { verifyEmailsBatch, isSafeToSend } from "./bouncer";
 
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
 
@@ -43,9 +44,10 @@ export function cleanName(name: string): string {
 export interface EnrichResult {
   processed: number;
   enriched: number; // got snippet+stats back
-  queued: number; // had email + meets threshold
+  queued: number; // had email + meets threshold + Bouncer says safe
   noEmail: number;
   lowQuality: number;
+  invalidEmail: number; // had email but Bouncer flagged as undeliverable / risky-disposable / unknown
   quotaUsed: number;
   errors: string[];
 }
@@ -77,6 +79,7 @@ export async function enrichChannels(
     queued: 0,
     noEmail: 0,
     lowQuality: 0,
+    invalidEmail: 0,
     quotaUsed: 0,
     errors: [],
   };
@@ -108,8 +111,24 @@ export async function enrichChannels(
 
     if (items.length === 0) continue;
 
-    // Build rows for upsert
-    const rows = items.map((it) => {
+    // Pass 1: build draft rows + initial status (pre-Bouncer)
+    type DraftRow = {
+      id: string;
+      title: string;
+      cleanName: string;
+      country: string | null;
+      language: string | null;
+      subscribers: number;
+      videoCount: number;
+      primaryEmail: string | null;
+      allEmails: string[] | null;
+      topicCategories: string[] | null;
+      score: number;
+      status: "queued" | "no_email" | "low_quality";
+      discoveredVia: string | null;
+      lastRefreshedAt: Date;
+    };
+    const drafts: DraftRow[] = items.map((it) => {
       const subs = parseInt(it.statistics?.subscriberCount ?? "0", 10) || 0;
       const videoCount = parseInt(it.statistics?.videoCount ?? "0", 10) || 0;
       const desc = it.snippet?.description ?? "";
@@ -143,16 +162,9 @@ export async function enrichChannels(
       });
 
       let status: "queued" | "no_email" | "low_quality";
-      if (!passesThreshold) {
-        status = "low_quality";
-        result.lowQuality++;
-      } else if (!primaryEmail) {
-        status = "no_email";
-        result.noEmail++;
-      } else {
-        status = "queued";
-        result.queued++;
-      }
+      if (!passesThreshold) status = "low_quality";
+      else if (!primaryEmail) status = "no_email";
+      else status = "queued";
 
       const title = it.snippet?.title ?? it.id;
       return {
@@ -172,6 +184,33 @@ export async function enrichChannels(
         lastRefreshedAt: new Date(),
       };
     });
+
+    // Tally PRE-Bouncer state (so we know what would have been queued).
+    for (const d of drafts) {
+      if (d.status === "queued") result.queued++;
+      else if (d.status === "no_email") result.noEmail++;
+      else if (d.status === "low_quality") result.lowQuality++;
+    }
+
+    // Pass 2: validate emails for rows that would otherwise be 'queued'.
+    // Demote to 'low_quality' when Bouncer says undeliverable / risky-disposable /
+    // unknown. The conservative gate lives in lib/bouncer.ts:isSafeToSend.
+    const toValidate = drafts.filter((d) => d.status === "queued" && d.primaryEmail);
+    const emailsToValidate = toValidate.map((d) => d.primaryEmail!);
+    if (emailsToValidate.length > 0) {
+      const verdicts = await verifyEmailsBatch(emailsToValidate, 8);
+      const verdictByEmail = new Map(verdicts.map((v) => [v.email, v]));
+      for (const draft of toValidate) {
+        const v = verdictByEmail.get(draft.primaryEmail!.toLowerCase());
+        if (v && !isSafeToSend(v)) {
+          draft.status = "low_quality";
+          result.queued--;
+          result.invalidEmail++;
+        }
+      }
+    }
+
+    const rows = drafts;
 
     // Upsert: only update if current status is one we WANT to refresh.
     // Never override 'sent'/'bounced'/'complained'/'opted_out'.

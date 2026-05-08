@@ -303,6 +303,29 @@ export const emailTemplates = pgTable(
   }),
 );
 
+// ─── email_validations ──────────────────────────────────────────────────
+// Cache for Bouncer email-verification results. Key by email so the same
+// address used by multiple channels validates once. Re-validate after 90 days.
+
+export const emailValidations = pgTable(
+  "email_validations",
+  {
+    email: text("email").primaryKey(),
+    // bouncer status: deliverable | risky | undeliverable | unknown
+    status: text("status").notNull(),
+    reason: text("reason"),
+    score: integer("score"),
+    raw: jsonb("raw"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    statusIdx: index("email_validations_status_idx").on(t.status),
+    verifiedAtIdx: index("email_validations_verified_at_idx").on(t.verifiedAt),
+  }),
+);
+
 // ─── Type exports ───────────────────────────────────────────────────────────
 
 export type Channel = typeof channels.$inferSelect;
@@ -320,3 +343,5 @@ export type QueryPoolEntry = typeof queryPool.$inferSelect;
 export type NewQueryPoolEntry = typeof queryPool.$inferInsert;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
+export type EmailValidation = typeof emailValidations.$inferSelect;
+export type NewEmailValidation = typeof emailValidations.$inferInsert;

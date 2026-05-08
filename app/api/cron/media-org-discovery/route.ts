@@ -26,6 +26,7 @@ import {
 } from "@/lib/media-org-search";
 import { fetchAgencyEmails } from "@/lib/agency-extract";
 import { isPlaceholderEmail, type AgencyResult } from "@/lib/agency-search";
+import { verifyEmailsBatch, isSafeToSend } from "@/lib/bouncer";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -64,6 +65,7 @@ interface PairResult {
   fromSonar: number;
   domainsTried: number;
   emailsFound: number;
+  bouncerSkipped: number;
   insertedNew: number;
   alreadyKnown: number;
   errors: string[];
@@ -209,6 +211,7 @@ async function runOnePair({
     fromSonar: 0,
     domainsTried: 0,
     emailsFound: 0,
+    bouncerSkipped: 0,
     insertedNew: 0,
     alreadyKnown: 0,
     errors: [],
@@ -269,27 +272,42 @@ async function runOnePair({
 
   if (enriched.length === 0) return result;
 
+  // Bouncer validation — gate `queued` on deliverability
+  const bouncerVerdicts = dryRun
+    ? new Map<string, ReturnType<typeof isSafeToSend>>()
+    : await (async () => {
+        const verdicts = await verifyEmailsBatch(enriched.map((a) => a.email!), 8);
+        return new Map(verdicts.map((v) => [v.email, isSafeToSend(v)] as const));
+      })();
+
   const discoveredVia = `sonar:media-org:${country}:${category}`;
-  const rows = enriched.map((a) => ({
-    id: mediaOrgChannelId(a.website),
-    title: a.name,
-    cleanName: a.name,
-    country,
-    language: null,
-    subscribers: null,
-    videoCount: null,
-    primaryEmail: a.email!,
-    allEmails:
-      a.extractedEmails && a.extractedEmails.length > 0
-        ? a.extractedEmails
-        : [a.email!],
-    topicCategories: null,
-    score: 50,
-    status: "queued" as const,
-    discoveredVia,
-    discoveredAt: new Date(),
-    lastRefreshedAt: new Date(),
-  }));
+  const rows = enriched.map((a) => {
+    const safe = dryRun ? true : (bouncerVerdicts.get(a.email!.toLowerCase()) ?? false);
+    if (!safe) result.bouncerSkipped++;
+    return {
+      id: mediaOrgChannelId(a.website),
+      title: a.name,
+      cleanName: a.name,
+      country,
+      language: null,
+      subscribers: null,
+      videoCount: null,
+      primaryEmail: a.email!,
+      allEmails:
+        a.extractedEmails && a.extractedEmails.length > 0
+          ? a.extractedEmails
+          : [a.email!],
+      topicCategories: null,
+      score: 50,
+      status: (safe ? "queued" : "low_quality") as "queued" | "low_quality",
+      discoveredVia,
+      discoveredAt: new Date(),
+      lastRefreshedAt: new Date(),
+    };
+  });
+  if (result.bouncerSkipped > 0) {
+    log(`  bouncer demoted: ${result.bouncerSkipped} of ${enriched.length} (set status=low_quality)`);
+  }
 
   if (dryRun) {
     result.insertedNew = rows.length;

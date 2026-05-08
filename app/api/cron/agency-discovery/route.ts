@@ -21,6 +21,7 @@ import {
   type AgencyResult,
 } from "@/lib/agency-search";
 import { fetchAgencyEmails } from "@/lib/agency-extract";
+import { verifyEmailsBatch, isSafeToSend } from "@/lib/bouncer";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -86,6 +87,7 @@ interface PairResult {
   fromSonar: number;
   domainsTried: number;
   emailsFound: number;
+  bouncerSkipped: number; // emails Bouncer flagged as unsafe (undeliverable / unknown / risky-bad)
   qualifiedNew: number;
   insertedNew: number;
   alreadyKnown: number;
@@ -235,6 +237,7 @@ async function runOnePair({
     fromSonar: 0,
     domainsTried: 0,
     emailsFound: 0,
+    bouncerSkipped: 0,
     qualifiedNew: 0,
     insertedNew: 0,
     alreadyKnown: 0,
@@ -298,27 +301,47 @@ async function runOnePair({
 
   if (enriched.length === 0) return result;
 
+  // 3.5. Bouncer validation — gate `queued` status on deliverability. Demote
+  // to `low_quality` when undeliverable / risky-bad / unknown so they never
+  // enter the send pipeline. Skip in dryRun (don't burn API quota).
+  const bouncerVerdicts = dryRun
+    ? new Map<string, ReturnType<typeof isSafeToSend>>()
+    : await (async () => {
+        const verdicts = await verifyEmailsBatch(
+          enriched.map((a) => a.email!),
+          8,
+        );
+        return new Map(verdicts.map((v) => [v.email, isSafeToSend(v)] as const));
+      })();
+
   // 4. Build rows for upsert
   const discoveredVia = `sonar:agency:${country}:${category}`;
-  const rows = enriched.map((a) => ({
-    id: agencyChannelId(a.website),
-    title: a.name,
-    cleanName: a.name,
-    country,
-    language: null,
-    subscribers: null,
-    videoCount: null,
-    primaryEmail: a.email!,
-    allEmails: a.extractedEmails && a.extractedEmails.length > 0
-      ? a.extractedEmails
-      : [a.email!],
-    topicCategories: null,
-    score: 50, // mid-tier default for agencies; tune later when we have signal
-    status: "queued" as const,
-    discoveredVia,
-    discoveredAt: new Date(),
-    lastRefreshedAt: new Date(),
-  }));
+  const rows = enriched.map((a) => {
+    const safe = dryRun ? true : (bouncerVerdicts.get(a.email!.toLowerCase()) ?? false);
+    if (!safe) result.bouncerSkipped++;
+    return {
+      id: agencyChannelId(a.website),
+      title: a.name,
+      cleanName: a.name,
+      country,
+      language: null,
+      subscribers: null,
+      videoCount: null,
+      primaryEmail: a.email!,
+      allEmails: a.extractedEmails && a.extractedEmails.length > 0
+        ? a.extractedEmails
+        : [a.email!],
+      topicCategories: null,
+      score: 50, // mid-tier default for agencies; tune later when we have signal
+      status: (safe ? "queued" : "low_quality") as "queued" | "low_quality",
+      discoveredVia,
+      discoveredAt: new Date(),
+      lastRefreshedAt: new Date(),
+    };
+  });
+  if (result.bouncerSkipped > 0) {
+    log(`  bouncer demoted: ${result.bouncerSkipped} of ${enriched.length} (set status=low_quality)`);
+  }
 
   if (dryRun) {
     result.insertedNew = rows.length; // simulated
