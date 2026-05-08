@@ -160,23 +160,31 @@ export async function verifyEmail(email: string): Promise<BouncerResult> {
  *     Other risky reasons (low_quality on free provider — Gmail/Yahoo) are
  *     accepted because most creators use free providers.
  *   - `undeliverable` → ✗ (invalid syntax / dead domain / mailbox doesn't exist)
- *   - `unknown` → ✗ (couldn't verify; safer to skip and retry later)
+ *   - `unknown` (from a real API response) → ✗ (Bouncer tried, couldn't tell)
  *
- * EXCEPTION — fail-open when Bouncer isn't actually consulted:
- *   If the API key isn't configured (BOUNCER_API_KEY missing), we want the
- *   pipeline to behave AS IF Bouncer didn't exist (preserve pre-integration
- *   behavior). Otherwise deploying the code without the env var would silently
- *   demote every new email to low_quality and freeze the discovery → send flow.
+ * FAIL-OPEN — when Bouncer didn't actually return a verdict (any of):
+ *   - BOUNCER_API_KEY not configured
+ *   - API returned non-200 (out of credits 402, rate-limited 429, service down 5xx, etc.)
+ *   - Network timeout / fetch threw before getting a response
+ *
+ * In those cases the pipeline behaves AS IF Bouncer didn't exist — preserving
+ * pre-integration behavior. Otherwise deploying without env vars or running
+ * out of credits would silently demote every new email to low_quality and
+ * freeze the discovery → send flow.
+ *
+ * Marker for "Bouncer didn't speak": `raw` is undefined AND fromCache is
+ * false. Cached results lack raw too but fromCache=true distinguishes them
+ * (those keep applying the gate based on the cached status/flags).
  */
 export function isSafeToSend(result: BouncerResult): boolean {
-  if (result.reason === "no_api_key") return true; // fail-open
+  if (result.raw === undefined && !result.fromCache) return true; // fail-open
   if (result.status === "deliverable") return true;
   if (result.status === "risky") {
     if (result.disposable) return false;
     if (result.fullMailbox) return false;
     return true;
   }
-  return false; // undeliverable | unknown (timeouts, dns errors, etc. stay conservative)
+  return false; // undeliverable | unknown (real Bouncer verdicts)
 }
 
 /**
