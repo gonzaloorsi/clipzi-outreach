@@ -2,12 +2,16 @@
 // streaming-TV channels. Single search type per (country × category) — no
 // individual/org split (individuals come in via creator-discovery on YouTube).
 //
-// Categories cover the four flavors of "org that produces recorded long-form
+// Categories cover the flavors of "org that produces recorded long-form
 // content and needs to clip it":
 //   - streaming-tv     (Olga, Luzu, Vorterix, Twitch-style live broadcasters)
 //   - radio-station    (FM/AM stations that publish their programs online)
 //   - podcast-network  (multi-show production companies)
 //   - internet-radio   (online-only stations with archives)
+//   - video-podcast    (video-first long-form shows: Joe Rogan / Lex Fridman style)
+//
+// Each (country × category) tuple gets a sub-topic "angle" rotated daily so
+// Sonar explores different clusters instead of returning the same top results.
 //
 // Reuses the Sonar transport pattern from lib/agency-search.ts. Reuses
 // normalizeDomain + isPlaceholderEmail from there.
@@ -21,14 +25,62 @@ export type MediaOrgCategory =
   | "streaming-tv"
   | "radio-station"
   | "podcast-network"
-  | "internet-radio";
+  | "internet-radio"
+  | "video-podcast";
 
 export const MEDIA_ORG_CATEGORIES: MediaOrgCategory[] = [
   "streaming-tv",
   "radio-station",
   "podcast-network",
   "internet-radio",
+  "video-podcast",
 ];
+
+// Sub-topic angles per category. Rotated by day so Sonar surfaces different
+// clusters across iterations. After 6 days, every (country × category) tuple
+// has been queried with all angles, dramatically expanding effective coverage.
+export const MEDIA_ORG_ANGLES: Record<MediaOrgCategory, string[]> = {
+  "streaming-tv": [
+    "comedy and entertainment-focused",
+    "politics and current affairs",
+    "sports and lifestyle",
+    "tech and business",
+    "music and culture",
+    "youth and gaming",
+  ],
+  "radio-station": [
+    "news and talk format",
+    "sports broadcasting",
+    "music format (FM)",
+    "AM news and politics",
+    "regional and local",
+    "community and educational",
+  ],
+  "podcast-network": [
+    "comedy and entertainment",
+    "true crime and investigative",
+    "business and entrepreneurship",
+    "politics and current events",
+    "tech and innovation",
+    "sports and lifestyle",
+  ],
+  "internet-radio": [
+    "music and electronic",
+    "community and student-run",
+    "alternative and indie",
+    "regional Latino diaspora",
+    "talk and discussion",
+    "themed and curated",
+  ],
+  "video-podcast": [
+    "long-form interview shows",
+    "comedy and entertainment networks",
+    "business and tech interviews",
+    "politics and debate",
+    "sports interviews and analysis",
+    "culture and lifestyle",
+  ],
+};
 
 export interface MediaOrgSearchResult {
   results: AgencyResult[];
@@ -60,16 +112,19 @@ const CATEGORY_LABEL: Record<MediaOrgCategory, string> = {
     "podcast networks and podcast production companies that operate multiple shows under one brand (NOT solo podcasters with their own show)",
   "internet-radio":
     "internet-only radio stations and webcasters (no FM/AM signal) that publicly stream live and archive their programs",
+  "video-podcast":
+    "video-first podcast networks and shows that publish full episodes on YouTube as their primary distribution (think Joe Rogan, Lex Fridman style: long-form interviews recorded in a video studio). Multi-show production companies preferred but high-profile single-show video podcasts also count if they have a real org/website behind them",
 };
 
 function buildPrompt(
   countryCode: string,
   category: MediaOrgCategory,
   n: number,
+  angle: string,
 ): string {
   const countryName = COUNTRY_FULL_NAMES[countryCode] ?? countryCode;
   const label = CATEGORY_LABEL[category];
-  return `List up to ${n} ${label} headquartered or primarily operating in ${countryName} (the country, not a US state). Each entry must have a real website with a real TLD — we will scrape the email from the site if you don't surface one directly.
+  return `List up to ${n} ${label} headquartered or primarily operating in ${countryName} (the country, not a US state), focused specifically on **${angle}** content/programming. Each entry must have a real website with a real TLD — we will scrape the email from the site if you don't surface one directly.
 
 Return ONLY a JSON object with this exact shape:
 {
@@ -176,8 +231,13 @@ async function callSonar(prompt: string): Promise<MediaOrgSearchResult> {
 export async function searchMediaOrgs(
   country: string,
   category: MediaOrgCategory,
-  options: { maxResults?: number } = {},
+  options: { maxResults?: number; angle: string },
 ): Promise<MediaOrgSearchResult> {
-  const prompt = buildPrompt(country, category, options.maxResults ?? 10);
+  const prompt = buildPrompt(
+    country,
+    category,
+    options.maxResults ?? 10,
+    options.angle,
+  );
   return callSonar(prompt);
 }

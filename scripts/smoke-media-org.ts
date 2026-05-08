@@ -40,7 +40,10 @@ console.log("[1/3] Calling Sonar via AI Gateway...");
 const t0 = Date.now();
 let sonar;
 try {
-  sonar = await searchMediaOrgs(country, category, { maxResults: 10 });
+  sonar = await searchMediaOrgs(country, category, {
+    maxResults: 10,
+    angle: "comedy and entertainment",
+  });
 } catch (e) {
   console.error("❌ Sonar call failed:", e instanceof Error ? e.message : e);
   process.exit(1);

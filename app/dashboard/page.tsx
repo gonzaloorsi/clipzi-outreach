@@ -1254,6 +1254,7 @@ const MEDIA_ORG_CATEGORY_LABELS: Record<string, string> = {
   "radio-station": "Radios",
   "podcast-network": "Networks de podcast",
   "internet-radio": "Radios online",
+  "video-podcast": "Video-podcasts",
 };
 
 function nextMediaOrgRun(): { at: Date; inMinutes: number } {

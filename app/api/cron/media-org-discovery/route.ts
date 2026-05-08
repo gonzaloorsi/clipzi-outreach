@@ -22,6 +22,7 @@ import { channels, discoveryRuns } from "@/db/schema";
 import {
   searchMediaOrgs,
   MEDIA_ORG_CATEGORIES,
+  MEDIA_ORG_ANGLES,
   type MediaOrgCategory,
 } from "@/lib/media-org-search";
 import { fetchAgencyEmails } from "@/lib/agency-extract";
@@ -32,14 +33,17 @@ export const runtime = "nodejs";
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
-// 9 LATAM-pesados. AR is the killer market for streaming-TV (Olga, Luzu,
-// Vorterix, Bondi, Gelatina, Carajo, Blender). ES/MX/BR have strong radio
-// + podcast network presence. US/GB primarily for podcast-network coverage.
+// 14 countries total. 9 LATAM-pesados (AR is killer market for streaming-TV:
+// Olga, Luzu, Vorterix, Bondi, Gelatina, Carajo, Blender). ES/MX/BR have strong
+// radio + podcast network presence. US/GB primarily for podcast-network. The
+// new 5 (IT/FR/DE/IN/AU) cover Western Europe + India + Australia where
+// long-form video-podcast and large podcast networks are well-developed.
 const DEFAULT_COUNTRIES = [
   "AR", "MX", "ES", "CO", "CL", "UY", "BR", "US", "GB",
+  "IT", "FR", "DE", "IN", "AU",
 ];
 
-// 36 total pairs (9 countries × 4 categories). 8 ticks/day → ~5 pairs/tick.
+// 70 total pairs (14 countries × 5 categories). 8 ticks/day → ~9 pairs/tick.
 const TICKS_PER_DAY = 8;
 
 // Cap how many sites we scrape per pair when Sonar didn't return an email.
@@ -144,9 +148,20 @@ export async function GET(req: NextRequest) {
   let totalSeen = 0;
   let totalErrors = 0;
 
+  // Day-of-year for deterministic angle rotation. Each tuple gets a different
+  // angle every day; with 6 angles/category, the same tuple cycles through all
+  // angles in 6 days.
+  const now = new Date();
+  const dayOfYear = Math.floor(
+    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000,
+  );
+
   try {
-    for (const { country, category } of pairs) {
-      const r = await runOnePair({ country, category, dryRun, log });
+    for (let idx = 0; idx < pairs.length; idx++) {
+      const { country, category } = pairs[idx];
+      const angles = MEDIA_ORG_ANGLES[category];
+      const angle = angles[(dayOfYear + idx) % angles.length];
+      const r = await runOnePair({ country, category, angle, dryRun, log });
       allResults.push(r);
       totalInsertedNew += r.insertedNew;
       totalSeen += r.fromSonar;
@@ -197,11 +212,13 @@ export async function GET(req: NextRequest) {
 async function runOnePair({
   country,
   category,
+  angle,
   dryRun,
   log,
 }: {
   country: string;
   category: MediaOrgCategory;
+  angle: string;
   dryRun: boolean;
   log: (s: string) => void;
 }): Promise<PairResult> {
@@ -217,11 +234,11 @@ async function runOnePair({
     errors: [],
   };
 
-  log(`pair: ${country} × ${category}`);
+  log(`pair: ${country} × ${category} · angle="${angle}"`);
 
   let sonar;
   try {
-    sonar = await searchMediaOrgs(country, category, { maxResults: 10 });
+    sonar = await searchMediaOrgs(country, category, { maxResults: 10, angle });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     result.errors.push(`sonar: ${msg.slice(0, 150)}`);
