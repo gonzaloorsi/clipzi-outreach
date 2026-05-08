@@ -1607,31 +1607,6 @@ function BouncerSection({ stats }: { stats: BouncerStats }) {
         </div>
       )}
 
-      {/* Histórico — informativo, no accionable */}
-      <div style={{ ...s.card, marginBottom: 16, padding: 16, opacity: 0.85 }}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: 0.6,
-            color: c.muted,
-            marginBottom: 8,
-          }}
-        >
-          Histórico (referencia)
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 500, color: c.text }}>
-          {stats.retrospectiveBadSent.toLocaleString()}
-        </div>
-        <div style={{ fontSize: 13, color: c.text, marginBottom: 4 }}>
-          envíos a addresses ahora marcadas como malas
-        </div>
-        <div style={{ fontSize: 12, color: c.dim, lineHeight: 1.5 }}>
-          Daño que Bouncer habría evitado si hubiera estado desde el día 1. No
-          es accionable.
-        </div>
-      </div>
-
       {/* Detalle técnico colapsado */}
       <details style={{ marginTop: 8 }}>
         <summary
