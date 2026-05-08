@@ -113,7 +113,7 @@ export default async function TemplatesListPage() {
           color: c.dim,
           fontSize: 12,
           fontStyle: "italic",
-          margin: "0 0 1.5rem 0",
+          margin: "0 0 0.75rem 0",
         }}
       >
         Las plantillas que tienen una versión guardada en DB sobrescriben el
@@ -121,6 +121,24 @@ export default async function TemplatesListPage() {
         directamente. Variables disponibles: <code>{"{channelName}"}</code> y{" "}
         <code>{"{fromName}"}</code>.
       </p>
+      <div
+        style={{
+          background: c.warn + "11",
+          border: `1px solid ${c.warn}44`,
+          color: c.text,
+          fontSize: 12,
+          padding: "10px 12px",
+          borderRadius: 6,
+          margin: "0 0 1.5rem 0",
+          lineHeight: 1.5,
+        }}
+      >
+        <strong>Nota:</strong> los templates están en HTML para edición. Pero la
+        versión que llega al recipient sale en <strong>plain text + subject en
+        minúscula</strong> (decisión de deliverability tras tests en GMass +
+        GlockApps). Al editar cada template vas a ver ambas vistas: la enviada y
+        la raw.
+      </div>
 
       {KIND_ORDER.map((kind) => (
         <section key={kind} style={{ marginBottom: "2rem" }}>

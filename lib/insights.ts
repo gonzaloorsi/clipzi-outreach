@@ -676,6 +676,11 @@ export interface BouncerStats {
   // damage Bouncer revealed retrospectively. Each = a real bounce or spam-
   // trap hit that already cost reputation.
   retrospectiveBadSent: number;
+  // Cartera coverage: of all channels with primary_email in queued+low_quality
+  // states, how many have a Bouncer verdict cached. Numerator/denominator so
+  // the dashboard can render the ratio + the absolute counts.
+  coverageValidated: number;
+  coverageTotal: number;
 }
 
 export async function getBouncerStats(): Promise<BouncerStats> {
@@ -740,6 +745,18 @@ export async function getBouncerStats(): Promise<BouncerStats> {
   const currentlyQueuedBad = impactRow?.queued_bad ?? 0;
   const retrospectiveBadSent = impactRow?.sent_bad ?? 0;
 
+  const coverageRow = await db.execute<{ validated: number; total: number }>(sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE LOWER(c.primary_email) IN (SELECT email FROM email_validations)
+      )::int AS validated,
+      COUNT(*)::int AS total
+    FROM channels c
+    WHERE c.primary_email IS NOT NULL
+      AND c.status IN ('queued', 'low_quality')
+  `);
+  const coverage = (coverageRow.rows ?? coverageRow)[0] ?? { validated: 0, total: 0 };
+
   return {
     totalCached: total,
     byStatus,
@@ -748,6 +765,8 @@ export async function getBouncerStats(): Promise<BouncerStats> {
     channelsDemoted,
     currentlyQueuedBad,
     retrospectiveBadSent,
+    coverageValidated: coverage.validated,
+    coverageTotal: coverage.total,
   };
 }
 

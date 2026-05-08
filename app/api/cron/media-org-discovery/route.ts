@@ -314,15 +314,27 @@ async function runOnePair({
     return result;
   }
 
-  const inserted = await db
+  // ON CONFLICT DO UPDATE: only demote existing rows when re-discovery's
+  // Bouncer verdict is now low_quality. Never promote. Preserve terminal statuses.
+  const affected = await db
     .insert(channels)
     .values(rows)
-    .onConflictDoNothing({ target: channels.id })
-    .returning({ id: channels.id });
+    .onConflictDoUpdate({
+      target: channels.id,
+      set: {
+        status: sql`EXCLUDED.status`,
+        updatedAt: sql`NOW()`,
+      },
+      setWhere: sql`EXCLUDED.status = 'low_quality' AND channels.status NOT IN ('sent', 'bounced', 'complained', 'opted_out')`,
+    })
+    .returning({ id: channels.id, isNew: sql<boolean>`xmax = 0` });
 
-  result.insertedNew = inserted.length;
-  result.alreadyKnown = rows.length - inserted.length;
-  log(`  inserted: ${result.insertedNew} new, ${result.alreadyKnown} known`);
+  result.insertedNew = affected.filter((r) => r.isNew).length;
+  const reDemoted = affected.length - result.insertedNew;
+  result.alreadyKnown = rows.length - result.insertedNew;
+  log(
+    `  inserted: ${result.insertedNew} new, ${result.alreadyKnown} known${reDemoted > 0 ? ` (${reDemoted} re-discovery demoted to low_quality)` : ""}`,
+  );
 
   return result;
 }

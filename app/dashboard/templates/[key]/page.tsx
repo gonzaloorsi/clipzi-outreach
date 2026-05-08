@@ -11,6 +11,7 @@ import {
   ALL_TEMPLATE_KEYS,
 } from "@/lib/templates/db-loader";
 import { rowToBuilder } from "@/lib/templates/db-loader";
+import { htmlToPlainText } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -207,15 +208,21 @@ export default async function TemplateEditPage({
         {/* Preview column */}
         <div>
           <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
-            Preview · sample: <strong>{SAMPLE_CHANNEL_NAME}</strong> +{" "}
+            Sample: <strong>{SAMPLE_CHANNEL_NAME}</strong> +{" "}
             <strong>{SAMPLE_FROM_NAME}</strong>
+          </div>
+
+          {/* What actually goes out — plain text + lowercase subject */}
+          <div style={{ fontSize: 11, color: c.dim, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            ✓ Como llega al recipient (versión enviada)
           </div>
           <div
             style={{
               background: c.card,
-              border: `1px solid ${c.border}`,
+              border: `1px solid ${c.ok}66`,
               borderRadius: 8,
               overflow: "hidden",
+              marginBottom: 16,
             }}
           >
             <div
@@ -226,7 +233,47 @@ export default async function TemplateEditPage({
               }}
             >
               <div style={{ color: c.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
-                Subject
+                Subject (lowercase)
+              </div>
+              {preview.subject.toLowerCase()}
+            </div>
+            <div
+              style={{
+                padding: "16px",
+                fontSize: 14,
+                lineHeight: 1.5,
+                background: "#fff",
+                color: "#222",
+                whiteSpace: "pre-wrap",
+                fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+              }}
+            >
+              {htmlToPlainText(preview.html)}
+            </div>
+          </div>
+
+          {/* Raw HTML preview — for editing reference */}
+          <div style={{ fontSize: 11, color: c.dim, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            ⓘ Vista raw (template HTML, NO es lo que se manda)
+          </div>
+          <div
+            style={{
+              background: c.card,
+              border: `1px solid ${c.border}`,
+              borderRadius: 8,
+              overflow: "hidden",
+              opacity: 0.7,
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 16px",
+                borderBottom: `1px solid ${c.border}`,
+                fontSize: 13,
+              }}
+            >
+              <div style={{ color: c.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                Subject (raw)
               </div>
               {preview.subject}
             </div>
@@ -241,15 +288,19 @@ export default async function TemplateEditPage({
               dangerouslySetInnerHTML={{ __html: preview.html }}
             />
           </div>
+
           <div
             style={{
               fontSize: 11,
               color: c.muted,
               marginTop: 8,
-              fontStyle: "italic",
+              lineHeight: 1.5,
             }}
           >
-            El preview se actualiza al recargar la página tras guardar.
+            La versión enviada es lo que reciben los destinatarios (plain text +
+            subject en minúscula, definido en{" "}
+            <code>app/api/cron/send/route.ts:368-369</code>). La vista raw es
+            solo para referencia mientras editás.
           </div>
         </div>
       </div>

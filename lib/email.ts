@@ -68,7 +68,7 @@ export async function buildEmail(params: SendEmailParams): Promise<{
 // Strip HTML to a reasonable plain-text version. Used only for the textOnly
 // diagnostic flag — preserves paragraph breaks, drops tags, decodes common
 // HTML entities. Not a full-featured HTML-to-text converter.
-function htmlToPlainText(html: string): string {
+export function htmlToPlainText(html: string): string {
   return html
     .replace(/<\/p>\s*<p>/gi, "\n\n")
     .replace(/<p>/gi, "")

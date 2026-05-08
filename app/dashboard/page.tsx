@@ -1540,167 +1540,237 @@ const BOUNCER_STATUS_COLORS: Record<string, string> = {
 
 function BouncerSection({ stats }: { stats: BouncerStats }) {
   const healthy = stats.validatedLast7d > 0;
-  const filterPct =
-    stats.totalCached > 0
-      ? Math.round((stats.wouldSkip / stats.totalCached) * 100)
+  const coveragePct =
+    stats.coverageTotal > 0
+      ? Math.round((stats.coverageValidated / stats.coverageTotal) * 100)
       : 0;
+  const coverageGap = stats.coverageTotal - stats.coverageValidated;
 
   return (
     <section style={s.section}>
-      <h2 style={s.h2}>Validación de emails (Bouncer)</h2>
+      <h2 style={s.h2}>Salud de envíos</h2>
       <p style={s.hint}>
-        Bouncer valida cada email antes de que entre a la cola. Filtra typos,
-        dominios muertos, traps de spam y mailboxes llenos. Sin Bouncer cada
-        bounce real daña la reputation de los senders. Cuando el servicio no
-        responde (sin créditos, key faltante, timeout) el pipeline sigue
-        funcionando como si Bouncer no existiera (fail-open).
+        Cada bounce daña tu reputación con Gmail. Antes de mandar, verificamos
+        cada email y bloqueamos los que sabemos que van a fallar.
       </p>
 
-      <div style={{ ...s.card, marginBottom: 12 }}>
-        {!healthy && stats.totalCached === 0 ? (
-          <div>
-            <span style={s.chip(c.muted)}>○ Sin actividad</span>{" "}
-            <span style={{ fontSize: 13, color: c.dim }}>
-              Todavía no se validó ningún email. Si la API key está seteada en
-              Vercel, va a empezar a aparecer cuando corra la próxima discovery
-              tick.
-            </span>
-          </div>
-        ) : !healthy ? (
-          <div>
-            <div style={{ marginBottom: 8 }}>
-              <span style={s.chip(c.warn)}>⚠ Sin validaciones recientes</span>
-            </div>
-            <div style={{ fontSize: 13, color: c.text }}>
-              {stats.totalCached.toLocaleString()} emails en cache pero ninguno
-              validado en los últimos 7 días. Posibles causas: sin créditos en
-              Bouncer, key inválida, o discovery crons sin emails nuevos.
-              Pipeline sigue funcionando vía fail-open.
-            </div>
-          </div>
+      {/* Health line */}
+      <div style={{ marginBottom: 16 }}>
+        {healthy ? (
+          <span style={{ fontSize: 13 }}>
+            <span style={{ color: c.ok }}>●</span> Sistema activo ·{" "}
+            <strong>{stats.validatedLast7d.toLocaleString()}</strong>{" "}
+            verificaciones esta semana
+          </span>
+        ) : stats.totalCached === 0 ? (
+          <span style={{ fontSize: 13, color: c.dim }}>
+            <span style={{ color: c.muted }}>○</span> Sin actividad todavía. Va
+            a aparecer cuando corra la próxima discovery con créditos de
+            Bouncer.
+          </span>
         ) : (
-          <div>
-            <div style={{ marginBottom: 8 }}>
-              <span style={s.chip(c.ok)}>● Activo</span>{" "}
-              <span style={{ fontSize: 13, color: c.dim }}>
-                {stats.validatedLast7d.toLocaleString()} validaciones en últimos
-                7 días
-              </span>
-            </div>
-            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-              Cache total: <strong>{stats.totalCached.toLocaleString()}</strong>{" "}
-              emails. Filter rate:{" "}
-              <strong style={{ color: c.accent }}>{filterPct}%</strong>{" "}
-              ({stats.wouldSkip.toLocaleString()} hubieran sido bloqueados al
-              enviar).
-            </div>
-          </div>
+          <span style={{ fontSize: 13, color: c.dim }}>
+            <span style={{ color: c.warn }}>⚠</span> Sin verificaciones en los
+            últimos 7 días. Posible: sin créditos o sin emails nuevos en
+            discovery. Pipeline sigue funcionando vía fail-open.
+          </span>
         )}
       </div>
 
+      {/* Hero metric: lo que te ahorramos */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-          gap: 12,
-          marginBottom: 12,
+          ...s.card,
+          marginBottom: 16,
+          borderLeft: `3px solid ${c.ok}`,
+          padding: 16,
         }}
       >
-        {(["deliverable", "risky", "undeliverable", "unknown"] as const).map(
-          (status) => {
-            const row = stats.byStatus.find((b) => b.status === status);
-            const cnt = row?.cnt ?? 0;
-            const pct =
-              stats.totalCached > 0
-                ? Math.round((cnt / stats.totalCached) * 100)
-                : 0;
-            return (
-              <div key={status} style={s.card}>
-                <div
-                  style={{
-                    ...s.num,
-                    color: BOUNCER_STATUS_COLORS[status] ?? c.text,
-                  }}
-                >
-                  {cnt.toLocaleString()}
-                </div>
-                <div style={s.numLbl}>
-                  {BOUNCER_STATUS_LABELS[status] ?? status}
-                  <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
-                    {pct}% del cache
-                  </div>
-                </div>
-              </div>
-            );
-          },
-        )}
-      </div>
-
-      {/* Impact across channel pipeline stages */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 12,
-        }}
-      >
-        <div style={s.card}>
-          <div style={{ marginBottom: 6 }}>
-            <span style={s.chip(c.ok)}>preventivo</span>
-          </div>
-          <div style={{ ...s.num, color: c.ok }}>
-            {stats.channelsDemoted.toLocaleString()}
-          </div>
-          <div style={s.numLbl}>
-            Bloqueados antes del envío
-            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
-              status=low_quality por Bouncer al insertar. Sube cuando corre
-              discovery con Bouncer activo.
-            </div>
-          </div>
+        <div
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: 0.6,
+            color: c.muted,
+            marginBottom: 8,
+          }}
+        >
+          Lo que te ahorramos
         </div>
+        <div
+          style={{
+            fontSize: 32,
+            fontWeight: 600,
+            color: c.ok,
+            lineHeight: 1,
+            marginBottom: 6,
+          }}
+        >
+          {stats.channelsDemoted.toLocaleString()}
+        </div>
+        <div style={{ fontSize: 14, color: c.text, marginBottom: 4 }}>
+          envíos bloqueados antes de mandarse
+        </div>
+        <div style={{ fontSize: 12, color: c.dim, lineHeight: 1.5 }}>
+          Cada uno habría bouncereado en producción y dañado tu sender
+          reputation con los proveedores (Gmail, Yahoo, Outlook).
+        </div>
+      </div>
 
-        <div style={s.card}>
-          <div style={{ marginBottom: 6 }}>
-            <span
-              style={s.chip(stats.currentlyQueuedBad > 0 ? c.warn : c.muted)}
-            >
-              {stats.currentlyQueuedBad > 0 ? "alerta" : "ok"}
-            </span>
+      {/* Coverage bar */}
+      {stats.coverageTotal > 0 && (
+        <div style={{ ...s.card, marginBottom: 16, padding: 16 }}>
+          <div
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+              color: c.muted,
+              marginBottom: 8,
+            }}
+          >
+            Cobertura de la cartera
+          </div>
+          <div style={{ fontSize: 14, color: c.text, marginBottom: 8 }}>
+            <strong>{stats.coverageValidated.toLocaleString()}</strong> /{" "}
+            {stats.coverageTotal.toLocaleString()} emails verificados ·{" "}
+            <strong style={{ color: c.accent }}>{coveragePct}%</strong>
           </div>
           <div
             style={{
-              ...s.num,
-              color: stats.currentlyQueuedBad > 0 ? c.warn : c.text,
+              height: 8,
+              background: "rgba(255,255,255,0.06)",
+              borderRadius: 4,
+              overflow: "hidden",
+              marginBottom: 8,
             }}
           >
-            {stats.currentlyQueuedBad.toLocaleString()}
+            <div
+              style={{
+                width: `${coveragePct}%`,
+                height: "100%",
+                background: c.ok,
+                transition: "width 0.3s",
+              }}
+            />
           </div>
-          <div style={s.numLbl}>
-            En cola con email malo
-            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
-              status=queued pero Bouncer ahora dice malo. Si &gt; 0, validá
-              manualmente: el cache se llenó después del insert.
+          {coverageGap > 0 ? (
+            <div style={{ fontSize: 12, color: c.dim, lineHeight: 1.5 }}>
+              {coverageGap.toLocaleString()} sin verificar todavía. Son legacy
+              (descubiertos antes de prender Bouncer) o quedaron pendientes por
+              falta de créditos. Se van validando cuando Sonar los re-descubre,
+              o corriendo el backfill cuando recargás créditos.
             </div>
-          </div>
+          ) : (
+            <div style={{ fontSize: 12, color: c.dim, lineHeight: 1.5 }}>
+              Cartera 100% verificada.
+            </div>
+          )}
         </div>
+      )}
 
-        <div style={s.card}>
-          <div style={{ marginBottom: 6 }}>
-            <span style={s.chip(c.err)}>histórico</span>
-          </div>
-          <div style={{ ...s.num, color: c.err }}>
-            {stats.retrospectiveBadSent.toLocaleString()}
-          </div>
-          <div style={s.numLbl}>
-            Ya enviados a addresses malas
-            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
-              status=sent + email validado como malo. Daño histórico que
-              Bouncer hubiera evitado si hubiera estado activo desde el día 1.
-            </div>
-          </div>
+      {/* Histórico — informativo, no accionable */}
+      <div style={{ ...s.card, marginBottom: 16, padding: 16, opacity: 0.85 }}>
+        <div
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: 0.6,
+            color: c.muted,
+            marginBottom: 8,
+          }}
+        >
+          Histórico (referencia)
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 500, color: c.text }}>
+          {stats.retrospectiveBadSent.toLocaleString()}
+        </div>
+        <div style={{ fontSize: 13, color: c.text, marginBottom: 4 }}>
+          envíos a addresses ahora marcadas como malas
+        </div>
+        <div style={{ fontSize: 12, color: c.dim, lineHeight: 1.5 }}>
+          Daño que Bouncer habría evitado si hubiera estado desde el día 1. No
+          es accionable.
         </div>
       </div>
+
+      {/* Detalle técnico colapsado */}
+      <details style={{ marginTop: 8 }}>
+        <summary
+          style={{
+            fontSize: 12,
+            color: c.muted,
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+        >
+          Detalle técnico
+        </summary>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: 12,
+            marginTop: 12,
+          }}
+        >
+          {(["deliverable", "risky", "undeliverable", "unknown"] as const).map(
+            (status) => {
+              const row = stats.byStatus.find((b) => b.status === status);
+              const cnt = row?.cnt ?? 0;
+              const pct =
+                stats.totalCached > 0
+                  ? Math.round((cnt / stats.totalCached) * 100)
+                  : 0;
+              return (
+                <div key={status} style={s.card}>
+                  <div
+                    style={{
+                      ...s.num,
+                      color: BOUNCER_STATUS_COLORS[status] ?? c.text,
+                    }}
+                  >
+                    {cnt.toLocaleString()}
+                  </div>
+                  <div style={s.numLbl}>
+                    {BOUNCER_STATUS_LABELS[status] ?? status}
+                    <div
+                      style={{ color: c.muted, fontSize: 11, marginTop: 2 }}
+                    >
+                      {pct}% del cache
+                    </div>
+                  </div>
+                </div>
+              );
+            },
+          )}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: c.muted,
+            marginTop: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          Cache total: {stats.totalCached.toLocaleString()} emails. Bouncer
+          flagea como "do not send" {stats.wouldSkip.toLocaleString()} (
+          {stats.totalCached > 0
+            ? Math.round((stats.wouldSkip / stats.totalCached) * 100)
+            : 0}
+          % del cache).
+          {stats.currentlyQueuedBad > 0 && (
+            <>
+              {" "}
+              <span style={{ color: c.warn }}>
+                {stats.currentlyQueuedBad} canales en queued con verdict malo
+              </span>{" "}
+              — el ON CONFLICT DO UPDATE los va a demoter cuando re-discovery
+              los re-vea.
+            </>
+          )}
+        </div>
+      </details>
     </section>
   );
 }

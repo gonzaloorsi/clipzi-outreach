@@ -348,17 +348,30 @@ async function runOnePair({
     return result;
   }
 
-  // 5. Insert with ON CONFLICT DO NOTHING — duplicates get filtered automatically.
-  // Returning gives us the truly new IDs.
-  const inserted = await db
+  // 5. Insert with ON CONFLICT DO UPDATE that ONLY demotes existing rows when
+  // re-discovery's Bouncer verdict is now low_quality. Promotions never happen
+  // (a previously low_quality channel stays low_quality even if Bouncer flips).
+  // Terminal statuses (sent/bounced/etc.) are preserved.
+  // RETURNING xmax=0 distinguishes truly new inserts from updated re-discoveries.
+  const affected = await db
     .insert(channels)
     .values(rows)
-    .onConflictDoNothing({ target: channels.id })
-    .returning({ id: channels.id });
+    .onConflictDoUpdate({
+      target: channels.id,
+      set: {
+        status: sql`EXCLUDED.status`,
+        updatedAt: sql`NOW()`,
+      },
+      setWhere: sql`EXCLUDED.status = 'low_quality' AND channels.status NOT IN ('sent', 'bounced', 'complained', 'opted_out')`,
+    })
+    .returning({ id: channels.id, isNew: sql<boolean>`xmax = 0` });
 
-  result.insertedNew = inserted.length;
-  result.alreadyKnown = rows.length - inserted.length;
-  log(`  inserted: ${result.insertedNew} new, ${result.alreadyKnown} known`);
+  result.insertedNew = affected.filter((r) => r.isNew).length;
+  const reDemoted = affected.length - result.insertedNew;
+  result.alreadyKnown = rows.length - result.insertedNew;
+  log(
+    `  inserted: ${result.insertedNew} new, ${result.alreadyKnown} known${reDemoted > 0 ? ` (${reDemoted} re-discovery demoted to low_quality)` : ""}`,
+  );
 
   return result;
 }
