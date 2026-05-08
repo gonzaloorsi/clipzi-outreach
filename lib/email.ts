@@ -33,6 +33,7 @@ export interface SendEmailParams {
   // never sets these — they exist to test deliverability theories.
   textOnly?: boolean;       // strip HTML, send plain-text only
   lowercaseSubject?: boolean; // lowercase the subject before sending
+  noLink?: boolean;         // remove "(clipzi.app)" or bare URLs from the body
 }
 
 export interface SendEmailResult {
@@ -83,6 +84,20 @@ function htmlToPlainText(html: string): string {
     .trim();
 }
 
+// Remove parenthetical domain references and bare URLs. Used by noLink
+// diagnostic to strip "(clipzi.app)" and any "https://..." patterns the
+// templates emit, so we can test deliverability without any clickable target.
+function stripLinks(text: string): string {
+  return text
+    // Remove " (clipzi.app)" or "(any-domain.tld)" patterns including the
+    // leading whitespace so we don't leave dangling spaces.
+    .replace(/\s*\(\s*[a-z0-9-]+\.[a-z]{2,}(?:\.[a-z]{2,})?(?:\s*\/?\S*)?\s*\)/gi, "")
+    // Remove any bare http(s) URLs.
+    .replace(/https?:\/\/\S+/g, "")
+    // Collapse stray double-spaces that could result from removal.
+    .replace(/[ \t]{2,}/g, " ");
+}
+
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const { subject: rawSubject, html, language, kind, isAgency } = await buildEmail(params);
   const subject = params.lowercaseSubject ? rawSubject.toLowerCase() : rawSubject;
@@ -91,19 +106,22 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   // Resend's CreateEmailOptions is a discriminated union — branch on which
   // body field we want. textOnly path skips HTML multipart entirely; common
   // spam-test recommendation for isolating content vs format-related triggers.
+  // Apply noLink stripping AFTER converting / before sending, in whichever path
+  let bodyText = params.textOnly ? htmlToPlainText(html) : html;
+  if (params.noLink) bodyText = stripLinks(bodyText);
   try {
     const { data, error } = params.textOnly
       ? await client().emails.send({
           from,
           to,
           subject,
-          text: htmlToPlainText(html),
+          text: bodyText,
         })
       : await client().emails.send({
           from,
           to,
           subject,
-          html,
+          html: bodyText,
         });
     if (error) {
       return {

@@ -63,8 +63,10 @@ export async function GET(req: NextRequest) {
   // Diagnostic flags for deliverability testing — affect ONLY this debug call,
   // not the production cron. textOnly=1 sends plain text instead of HTML.
   // lowercaseSubject=1 lowercases the subject before sending.
+  // noLink=1 strips "(clipzi.app)" and bare URLs from the body.
   const textOnly = url.searchParams.get("textOnly") === "1";
   const lowercaseSubject = url.searchParams.get("lowercaseSubject") === "1";
+  const noLink = url.searchParams.get("noLink") === "1";
   const kind = url.searchParams.get("kind") ?? "creator";
   const lang = url.searchParams.get("lang") ?? "es";
   const channelName = url.searchParams.get("channelName") ?? "Demo Channel";
@@ -164,6 +166,7 @@ export async function GET(req: NextRequest) {
     discoveredVia,
     textOnly,
     lowercaseSubject,
+    noLink,
   });
 
   return NextResponse.json({
