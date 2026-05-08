@@ -663,9 +663,17 @@ export interface BouncerStats {
   wouldSkip: number;
   // Of the cache, how many were validated in the last 7 days (activity signal)
   validatedLast7d: number;
-  // Demoted count from channels with low_quality + has email + the email
-  // exists in email_validations (rough proxy for "Bouncer caused this")
+  // Channels with status='low_quality' whose email is flagged bad in cache —
+  // proxy for "Bouncer prevented this send before it happened" (PROSPECTIVE).
   channelsDemoted: number;
+  // Channels with status='queued' whose email is flagged bad — these would
+  // send next tick if nothing changes. Should be 0 in steady state because
+  // gating happens at insert. >0 = mismatch (cache populated AFTER insert).
+  currentlyQueuedBad: number;
+  // Channels with status='sent' whose email is flagged bad — historical
+  // damage Bouncer revealed retrospectively. Each = a real bounce or spam-
+  // trap hit that already cost reputation.
+  retrospectiveBadSent: number;
 }
 
 export async function getBouncerStats(): Promise<BouncerStats> {
@@ -701,21 +709,34 @@ export async function getBouncerStats(): Promise<BouncerStats> {
   `);
   const wouldSkip = (skipRow.rows ?? skipRow)[0]?.cnt ?? 0;
 
-  // Channels demoted to low_quality that have an email present in the cache
-  // — strong signal Bouncer caused the demotion (vs threshold fail).
-  const demotedRow = await db.execute<{ cnt: number }>(sql`
-    SELECT COUNT(*)::int AS cnt
+  // Three channel-level joins, parameterized by channel.status. The bad-email
+  // predicate is identical across them; only the status filter changes.
+  // Inline the predicate via a CTE-style sub-select for clarity.
+  const channelImpact = await db.execute<{
+    demoted: number;
+    queued_bad: number;
+    sent_bad: number;
+  }>(sql`
+    WITH bad_emails AS (
+      SELECT email FROM email_validations
+      WHERE status IN ('undeliverable', 'unknown')
+        OR (status = 'risky' AND (
+              raw->'domain'->>'disposable' = 'yes'
+              OR raw->'account'->>'fullMailbox' = 'yes'
+            ))
+    )
+    SELECT
+      COUNT(*) FILTER (WHERE c.status = 'low_quality')::int AS demoted,
+      COUNT(*) FILTER (WHERE c.status = 'queued')::int AS queued_bad,
+      COUNT(*) FILTER (WHERE c.status = 'sent')::int AS sent_bad
     FROM channels c
-    INNER JOIN email_validations ev ON ev.email = LOWER(c.primary_email)
-    WHERE c.status = 'low_quality'
-      AND c.primary_email IS NOT NULL
-      AND (ev.status IN ('undeliverable', 'unknown')
-        OR (ev.status = 'risky' AND (
-              ev.raw->'domain'->>'disposable' = 'yes'
-              OR ev.raw->'account'->>'fullMailbox' = 'yes'
-            )))
+    INNER JOIN bad_emails be ON be.email = LOWER(c.primary_email)
+    WHERE c.primary_email IS NOT NULL
   `);
-  const channelsDemoted = (demotedRow.rows ?? demotedRow)[0]?.cnt ?? 0;
+  const impactRow = (channelImpact.rows ?? channelImpact)[0];
+  const channelsDemoted = impactRow?.demoted ?? 0;
+  const currentlyQueuedBad = impactRow?.queued_bad ?? 0;
+  const retrospectiveBadSent = impactRow?.sent_bad ?? 0;
 
   return {
     totalCached: total,
@@ -723,6 +744,8 @@ export async function getBouncerStats(): Promise<BouncerStats> {
     wouldSkip,
     validatedLast7d: last7d,
     channelsDemoted,
+    currentlyQueuedBad,
+    retrospectiveBadSent,
   };
 }
 

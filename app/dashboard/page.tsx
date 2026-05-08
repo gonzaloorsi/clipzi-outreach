@@ -1612,19 +1612,68 @@ function BouncerSection({ stats }: { stats: BouncerStats }) {
         )}
       </div>
 
-      <div style={s.card}>
-        <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
-          Canales bloqueados por Bouncer (status=low_quality + email validado
-          como malo)
+      {/* Impact across channel pipeline stages */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 12,
+        }}
+      >
+        <div style={s.card}>
+          <div style={{ marginBottom: 6 }}>
+            <span style={s.chip(c.ok)}>preventivo</span>
+          </div>
+          <div style={{ ...s.num, color: c.ok }}>
+            {stats.channelsDemoted.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            Bloqueados antes del envío
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              status=low_quality por Bouncer al insertar. Sube cuando corre
+              discovery con Bouncer activo.
+            </div>
+          </div>
         </div>
-        <div style={s.num}>
-          {stats.channelsDemoted.toLocaleString()}
+
+        <div style={s.card}>
+          <div style={{ marginBottom: 6 }}>
+            <span
+              style={s.chip(stats.currentlyQueuedBad > 0 ? c.warn : c.muted)}
+            >
+              {stats.currentlyQueuedBad > 0 ? "alerta" : "ok"}
+            </span>
+          </div>
+          <div
+            style={{
+              ...s.num,
+              color: stats.currentlyQueuedBad > 0 ? c.warn : c.text,
+            }}
+          >
+            {stats.currentlyQueuedBad.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            En cola con email malo
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              status=queued pero Bouncer ahora dice malo. Si &gt; 0, validá
+              manualmente: el cache se llenó después del insert.
+            </div>
+          </div>
         </div>
-        <div style={s.numLbl}>
-          contactos que NO se enviaron gracias a Bouncer
-          <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
-            cada uno hubiera bouncereado o caído en spam trap, dañando la
-            reputation
+
+        <div style={s.card}>
+          <div style={{ marginBottom: 6 }}>
+            <span style={s.chip(c.err)}>histórico</span>
+          </div>
+          <div style={{ ...s.num, color: c.err }}>
+            {stats.retrospectiveBadSent.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            Ya enviados a addresses malas
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              status=sent + email validado como malo. Daño histórico que
+              Bouncer hubiera evitado si hubiera estado activo desde el día 1.
+            </div>
           </div>
         </div>
       </div>
