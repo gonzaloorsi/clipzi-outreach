@@ -61,13 +61,14 @@ export async function GET(req: NextRequest) {
   // Resend itself rejects sends from unverified domains, so this is safe at the
   // sender side. Use only for diagnostics — never send real outreach this way.
   const bypassValidation = url.searchParams.get("bypass") === "1";
-  // Diagnostic flags for deliverability testing — affect ONLY this debug call,
-  // not the production cron. textOnly=1 sends plain text instead of HTML.
-  // lowercaseSubject=1 lowercases the subject before sending.
+  // Deliverability flags. textOnly + lowercaseSubject DEFAULT TO TRUE so the
+  // debug endpoint matches production behavior (plain text + lowercase subject
+  // is what lands in Inbox per our GMass tests). To revert to HTML/cased
+  // behavior for testing, pass `?textOnly=0` and/or `?lowercaseSubject=0`.
   // noLink=1 strips "(clipzi.app)" and bare URLs from the body.
   // linkDomain=clipzi.net swaps "clipzi.app" → "clipzi.net" in body.
-  const textOnly = url.searchParams.get("textOnly") === "1";
-  const lowercaseSubject = url.searchParams.get("lowercaseSubject") === "1";
+  const textOnly = url.searchParams.get("textOnly") !== "0"; // default true
+  const lowercaseSubject = url.searchParams.get("lowercaseSubject") !== "0"; // default true
   const noLink = url.searchParams.get("noLink") === "1";
   const linkDomain = url.searchParams.get("linkDomain") ?? undefined;
   // Custom-content mode for total content swap. When BOTH are set, skip the
