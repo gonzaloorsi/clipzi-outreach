@@ -360,6 +360,13 @@ export async function GET(req: NextRequest) {
         country: c.country ?? null,
         language: c.language ?? null,
         discoveredVia: c.discoveredVia ?? null,
+        // Deliverability defaults — discovered via GMass + GlockApps testing.
+        // Plain text + lowercase subject lands in Inbox where HTML + Title Case
+        // landed in Spam/Promotions across all sender domains. Templates stay
+        // HTML-formatted (used by debug endpoint + dashboard preview); only the
+        // outreach send applies these transforms.
+        textOnly: true,
+        lowercaseSubject: true,
       });
 
       if (res.ok) {
