@@ -60,6 +60,11 @@ export async function GET(req: NextRequest) {
   // Resend itself rejects sends from unverified domains, so this is safe at the
   // sender side. Use only for diagnostics — never send real outreach this way.
   const bypassValidation = url.searchParams.get("bypass") === "1";
+  // Diagnostic flags for deliverability testing — affect ONLY this debug call,
+  // not the production cron. textOnly=1 sends plain text instead of HTML.
+  // lowercaseSubject=1 lowercases the subject before sending.
+  const textOnly = url.searchParams.get("textOnly") === "1";
+  const lowercaseSubject = url.searchParams.get("lowercaseSubject") === "1";
   const kind = url.searchParams.get("kind") ?? "creator";
   const lang = url.searchParams.get("lang") ?? "es";
   const channelName = url.searchParams.get("channelName") ?? "Demo Channel";
@@ -157,6 +162,8 @@ export async function GET(req: NextRequest) {
     country,
     language: lang,
     discoveredVia,
+    textOnly,
+    lowercaseSubject,
   });
 
   return NextResponse.json({

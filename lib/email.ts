@@ -29,6 +29,10 @@ export interface SendEmailParams {
   country: string | null;
   language: string | null;
   discoveredVia?: string | null;
+  // Diagnostic flags (used by /api/debug/send-test only). Production cron
+  // never sets these — they exist to test deliverability theories.
+  textOnly?: boolean;       // strip HTML, send plain-text only
+  lowercaseSubject?: boolean; // lowercase the subject before sending
 }
 
 export interface SendEmailResult {
@@ -59,15 +63,48 @@ export async function buildEmail(params: SendEmailParams): Promise<{
   return { subject, html, language, kind, isAgency };
 }
 
+// Strip HTML to a reasonable plain-text version. Used only for the textOnly
+// diagnostic flag — preserves paragraph breaks, drops tags, decodes common
+// HTML entities. Not a full-featured HTML-to-text converter.
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<\/p>\s*<p>/gi, "\n\n")
+    .replace(/<p>/gi, "")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
-  const { subject, html, language, kind, isAgency } = await buildEmail(params);
+  const { subject: rawSubject, html, language, kind, isAgency } = await buildEmail(params);
+  const subject = params.lowercaseSubject ? rawSubject.toLowerCase() : rawSubject;
+  const from = `${params.fromName} <${params.fromEmail}>`;
+  const to = [params.to];
+  // Resend's CreateEmailOptions is a discriminated union — branch on which
+  // body field we want. textOnly path skips HTML multipart entirely; common
+  // spam-test recommendation for isolating content vs format-related triggers.
   try {
-    const { data, error } = await client().emails.send({
-      from: `${params.fromName} <${params.fromEmail}>`,
-      to: [params.to],
-      subject,
-      html,
-    });
+    const { data, error } = params.textOnly
+      ? await client().emails.send({
+          from,
+          to,
+          subject,
+          text: htmlToPlainText(html),
+        })
+      : await client().emails.send({
+          from,
+          to,
+          subject,
+          html,
+        });
     if (error) {
       return {
         ok: false,
