@@ -16,6 +16,7 @@ import {
   getLastStandupRun,
   getMediaOrgStats,
   getLastMediaOrgRun,
+  getBouncerStats,
 } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
@@ -199,7 +200,7 @@ export default async function DashboardPage() {
   const [
     kpis, pipeline, recent, senders, win, runs, breakdown, heart,
     agencyStats, lastAgencyRun, standupStats, lastStandupRun,
-    mediaOrgStats, lastMediaOrgRun,
+    mediaOrgStats, lastMediaOrgRun, bouncerStats,
   ] = await Promise.all([
     getKPIs(),
     getPipeline(),
@@ -215,6 +216,7 @@ export default async function DashboardPage() {
     getLastStandupRun(),
     getMediaOrgStats(),
     getLastMediaOrgRun(),
+    getBouncerStats(),
   ]);
 
   const utilization = kpis.totalDailyCapacity > 0
@@ -541,6 +543,8 @@ export default async function DashboardPage() {
 
         <MediaOrgSection stats={mediaOrgStats} lastRun={lastMediaOrgRun} />
 
+        <BouncerSection stats={bouncerStats} />
+
 
 
         {/* SECTION 7: MIX 7 DÍAS */}
@@ -661,7 +665,7 @@ function BreakdownCard({
 
 // ─── DiscoverySection ──────────────────────────────────────────────────
 
-import type { DiscoveryRunRow, AgencyStats, StandupStats, MediaOrgStats } from "@/lib/insights";
+import type { DiscoveryRunRow, AgencyStats, StandupStats, MediaOrgStats, BouncerStats } from "@/lib/insights";
 
 function shortError(error: string | null): string {
   if (!error) return "";
@@ -1488,6 +1492,140 @@ function MediaOrgSection({
               </tbody>
             </table>
           )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── BouncerSection ────────────────────────────────────────────────────
+
+const BOUNCER_STATUS_LABELS: Record<string, string> = {
+  deliverable: "Deliverable",
+  risky: "Risky",
+  undeliverable: "Undeliverable",
+  unknown: "Unknown",
+};
+
+const BOUNCER_STATUS_COLORS: Record<string, string> = {
+  deliverable: c.ok,
+  risky: c.warn,
+  undeliverable: c.err,
+  unknown: c.muted,
+};
+
+function BouncerSection({ stats }: { stats: BouncerStats }) {
+  const healthy = stats.validatedLast7d > 0;
+  const filterPct =
+    stats.totalCached > 0
+      ? Math.round((stats.wouldSkip / stats.totalCached) * 100)
+      : 0;
+
+  return (
+    <section style={s.section}>
+      <h2 style={s.h2}>Validación de emails (Bouncer)</h2>
+      <p style={s.hint}>
+        Bouncer valida cada email antes de que entre a la cola. Filtra typos,
+        dominios muertos, traps de spam y mailboxes llenos. Sin Bouncer cada
+        bounce real daña la reputation de los senders. Cuando el servicio no
+        responde (sin créditos, key faltante, timeout) el pipeline sigue
+        funcionando como si Bouncer no existiera (fail-open).
+      </p>
+
+      <div style={{ ...s.card, marginBottom: 12 }}>
+        {!healthy && stats.totalCached === 0 ? (
+          <div>
+            <span style={s.chip(c.muted)}>○ Sin actividad</span>{" "}
+            <span style={{ fontSize: 13, color: c.dim }}>
+              Todavía no se validó ningún email. Si la API key está seteada en
+              Vercel, va a empezar a aparecer cuando corra la próxima discovery
+              tick.
+            </span>
+          </div>
+        ) : !healthy ? (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.warn)}>⚠ Sin validaciones recientes</span>
+            </div>
+            <div style={{ fontSize: 13, color: c.text }}>
+              {stats.totalCached.toLocaleString()} emails en cache pero ninguno
+              validado en los últimos 7 días. Posibles causas: sin créditos en
+              Bouncer, key inválida, o discovery crons sin emails nuevos.
+              Pipeline sigue funcionando vía fail-open.
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.ok)}>● Activo</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                {stats.validatedLast7d.toLocaleString()} validaciones en últimos
+                7 días
+              </span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Cache total: <strong>{stats.totalCached.toLocaleString()}</strong>{" "}
+              emails. Filter rate:{" "}
+              <strong style={{ color: c.accent }}>{filterPct}%</strong>{" "}
+              ({stats.wouldSkip.toLocaleString()} hubieran sido bloqueados al
+              enviar).
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        {(["deliverable", "risky", "undeliverable", "unknown"] as const).map(
+          (status) => {
+            const row = stats.byStatus.find((b) => b.status === status);
+            const cnt = row?.cnt ?? 0;
+            const pct =
+              stats.totalCached > 0
+                ? Math.round((cnt / stats.totalCached) * 100)
+                : 0;
+            return (
+              <div key={status} style={s.card}>
+                <div
+                  style={{
+                    ...s.num,
+                    color: BOUNCER_STATUS_COLORS[status] ?? c.text,
+                  }}
+                >
+                  {cnt.toLocaleString()}
+                </div>
+                <div style={s.numLbl}>
+                  {BOUNCER_STATUS_LABELS[status] ?? status}
+                  <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+                    {pct}% del cache
+                  </div>
+                </div>
+              </div>
+            );
+          },
+        )}
+      </div>
+
+      <div style={s.card}>
+        <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+          Canales bloqueados por Bouncer (status=low_quality + email validado
+          como malo)
+        </div>
+        <div style={s.num}>
+          {stats.channelsDemoted.toLocaleString()}
+        </div>
+        <div style={s.numLbl}>
+          contactos que NO se enviaron gracias a Bouncer
+          <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+            cada uno hubiera bouncereado o caído en spam trap, dañando la
+            reputation
+          </div>
         </div>
       </div>
     </section>

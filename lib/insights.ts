@@ -653,6 +653,79 @@ export async function getLastMediaOrgRun(): Promise<DiscoveryRunRow | null> {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// ─── Bouncer / email validation stats ────────────────────────────────────
+
+export interface BouncerStats {
+  totalCached: number;
+  byStatus: Array<{ status: string; cnt: number }>;
+  // How many entries Bouncer flags as "do not send" (per isSafeToSend logic)
+  // = undeliverable + (risky with disposable or fullMailbox) + unknown
+  wouldSkip: number;
+  // Of the cache, how many were validated in the last 7 days (activity signal)
+  validatedLast7d: number;
+  // Demoted count from channels with low_quality + has email + the email
+  // exists in email_validations (rough proxy for "Bouncer caused this")
+  channelsDemoted: number;
+}
+
+export async function getBouncerStats(): Promise<BouncerStats> {
+  const totalRow = await db.execute<{ cnt: number; last7d: number }>(sql`
+    SELECT
+      COUNT(*)::int AS cnt,
+      COUNT(*) FILTER (WHERE verified_at > NOW() - INTERVAL '7 days')::int AS last7d
+    FROM email_validations
+  `);
+  const total = (totalRow.rows ?? totalRow)[0]?.cnt ?? 0;
+  const last7d = (totalRow.rows ?? totalRow)[0]?.last7d ?? 0;
+
+  const byStatusResult = await db.execute<{ status: string; cnt: number }>(sql`
+    SELECT status, COUNT(*)::int AS cnt
+    FROM email_validations
+    GROUP BY status
+    ORDER BY cnt DESC
+  `);
+  const byStatus = (byStatusResult.rows ?? byStatusResult).map((r) => ({
+    status: r.status,
+    cnt: r.cnt,
+  }));
+
+  // Approximation of "would be skipped" if isSafeToSend ran on the cache.
+  const skipRow = await db.execute<{ cnt: number }>(sql`
+    SELECT COUNT(*)::int AS cnt FROM email_validations
+    WHERE status = 'undeliverable'
+       OR status = 'unknown'
+       OR (status = 'risky' AND (
+            raw->'domain'->>'disposable' = 'yes'
+            OR raw->'account'->>'fullMailbox' = 'yes'
+          ))
+  `);
+  const wouldSkip = (skipRow.rows ?? skipRow)[0]?.cnt ?? 0;
+
+  // Channels demoted to low_quality that have an email present in the cache
+  // — strong signal Bouncer caused the demotion (vs threshold fail).
+  const demotedRow = await db.execute<{ cnt: number }>(sql`
+    SELECT COUNT(*)::int AS cnt
+    FROM channels c
+    INNER JOIN email_validations ev ON ev.email = LOWER(c.primary_email)
+    WHERE c.status = 'low_quality'
+      AND c.primary_email IS NOT NULL
+      AND (ev.status IN ('undeliverable', 'unknown')
+        OR (ev.status = 'risky' AND (
+              ev.raw->'domain'->>'disposable' = 'yes'
+              OR ev.raw->'account'->>'fullMailbox' = 'yes'
+            )))
+  `);
+  const channelsDemoted = (demotedRow.rows ?? demotedRow)[0]?.cnt ?? 0;
+
+  return {
+    totalCached: total,
+    byStatus,
+    wouldSkip,
+    validatedLast7d: last7d,
+    channelsDemoted,
+  };
+}
+
 // ─── Cron heartbeat ──────────────────────────────────────────────────────
 
 export interface CronHeartbeat {
