@@ -20,6 +20,7 @@
 // used, and the sender + recipient. NO writes to DB.
 
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
 import { sendEmail } from "@/lib/email";
 import { loadSenderEmails } from "@/lib/sender-pool";
 
@@ -67,6 +68,11 @@ export async function GET(req: NextRequest) {
   const textOnly = url.searchParams.get("textOnly") === "1";
   const lowercaseSubject = url.searchParams.get("lowercaseSubject") === "1";
   const noLink = url.searchParams.get("noLink") === "1";
+  // Custom-content mode for total content swap. When BOTH are set, skip the
+  // template renderer entirely and send the raw subject + text. Used to test
+  // whether the Clipzi pitch itself is the spam trigger vs domain reputation.
+  const customSubject = url.searchParams.get("customSubject");
+  const customText = url.searchParams.get("customText");
   const kind = url.searchParams.get("kind") ?? "creator";
   const lang = url.searchParams.get("lang") ?? "es";
   const channelName = url.searchParams.get("channelName") ?? "Demo Channel";
@@ -148,6 +154,45 @@ export async function GET(req: NextRequest) {
       { ok: false, error: "RESEND_API_KEY not configured" },
       { status: 500 },
     );
+  }
+
+  // Custom-content path: bypass template renderer, send raw subject + text.
+  if (customSubject && customText) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    try {
+      const { data, error } = await resend.emails.send({
+        from: `${fromName} <${fromEmail}>`,
+        to: [to],
+        subject: lowercaseSubject ? customSubject.toLowerCase() : customSubject,
+        text: customText,
+      });
+      if (error) {
+        return NextResponse.json({
+          ok: false,
+          error: error.message ?? JSON.stringify(error),
+          mode: "custom",
+          fromEmail,
+          fromName,
+          sentTo: to,
+        });
+      }
+      return NextResponse.json({
+        ok: true,
+        messageId: data?.id,
+        mode: "custom",
+        fromEmail,
+        fromName,
+        sentTo: to,
+        subject: lowercaseSubject ? customSubject.toLowerCase() : customSubject,
+        textPreview: customText.slice(0, 120),
+      });
+    } catch (e: unknown) {
+      return NextResponse.json({
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+        mode: "custom",
+      }, { status: 500 });
+    }
   }
 
   const discoveredVia = KIND_TO_DISCOVERED_VIA[kind];
