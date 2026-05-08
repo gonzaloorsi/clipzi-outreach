@@ -65,9 +65,11 @@ export async function GET(req: NextRequest) {
   // not the production cron. textOnly=1 sends plain text instead of HTML.
   // lowercaseSubject=1 lowercases the subject before sending.
   // noLink=1 strips "(clipzi.app)" and bare URLs from the body.
+  // linkDomain=clipzi.net swaps "clipzi.app" → "clipzi.net" in body.
   const textOnly = url.searchParams.get("textOnly") === "1";
   const lowercaseSubject = url.searchParams.get("lowercaseSubject") === "1";
   const noLink = url.searchParams.get("noLink") === "1";
+  const linkDomain = url.searchParams.get("linkDomain") ?? undefined;
   // Custom-content mode for total content swap. When BOTH are set, skip the
   // template renderer entirely and send the raw subject + text. Used to test
   // whether the Clipzi pitch itself is the spam trigger vs domain reputation.
@@ -212,6 +214,7 @@ export async function GET(req: NextRequest) {
     textOnly,
     lowercaseSubject,
     noLink,
+    linkDomain,
   });
 
   return NextResponse.json({

@@ -34,6 +34,7 @@ export interface SendEmailParams {
   textOnly?: boolean;       // strip HTML, send plain-text only
   lowercaseSubject?: boolean; // lowercase the subject before sending
   noLink?: boolean;         // remove "(clipzi.app)" or bare URLs from the body
+  linkDomain?: string;      // replace "clipzi.app" in body with this domain (e.g. "clipzi.net")
 }
 
 export interface SendEmailResult {
@@ -109,6 +110,12 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   // Apply noLink stripping AFTER converting / before sending, in whichever path
   let bodyText = params.textOnly ? htmlToPlainText(html) : html;
   if (params.noLink) bodyText = stripLinks(bodyText);
+  // linkDomain: swap "clipzi.app" for the given domain (e.g. "clipzi.net") so
+  // we can A/B test if the specific domain reference is what trips spam filters.
+  if (params.linkDomain && params.linkDomain.trim()) {
+    const domain = params.linkDomain.trim();
+    bodyText = bodyText.replace(/clipzi\.app/g, domain);
+  }
   try {
     const { data, error } = params.textOnly
       ? await client().emails.send({
