@@ -4,7 +4,6 @@
 import {
   getKPIs,
   getPipeline,
-  getRecentSends,
   getSenderPool,
   getSendWindowState,
   getDiscoveryRuns,
@@ -198,13 +197,12 @@ function countryLabel(code: string | null): string {
 
 export default async function DashboardPage() {
   const [
-    kpis, pipeline, recent, senders, win, runs, breakdown, heart,
+    kpis, pipeline, senders, win, runs, breakdown, heart,
     agencyStats, lastAgencyRun, standupStats, lastStandupRun,
     mediaOrgStats, lastMediaOrgRun, bouncerStats,
   ] = await Promise.all([
     getKPIs(),
     getPipeline(),
-    getRecentSends(15),
     getSenderPool(),
     Promise.resolve(getSendWindowState()),
     getDiscoveryRuns(5),
@@ -499,66 +497,6 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* SECTION 5: ÚLTIMOS ENVÍOS */}
-        <section style={s.section}>
-          <h2 style={s.h2}>Últimos envíos</h2>
-          <p style={s.hint}>
-            Los 15 más recientes. Cada fila es un email único a un canal único.
-          </p>
-          <div style={s.card}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Cuándo</th>
-                  <th style={s.th}>Canal</th>
-                  <th style={{ ...s.th, textAlign: "right" }}>Subs</th>
-                  <th style={s.th}>País</th>
-                  <th style={s.th}>Idioma</th>
-                  <th style={s.th}>Email</th>
-                  <th style={s.th}>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.length === 0 && (
-                  <tr>
-                    <td style={s.td} colSpan={7}>
-                      <em style={{ color: c.dim }}>(no hay envíos aún)</em>
-                    </td>
-                  </tr>
-                )}
-                {recent.map((r, i) => (
-                  <tr key={r.channel_id + i}>
-                    <td style={{ ...s.td, color: c.dim, whiteSpace: "nowrap" }}>
-                      {ago(r.sent_at)}
-                    </td>
-                    <td style={s.td}>{r.clean_name || r.channel_title}</td>
-                    <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {fmtSubs(r.subscribers)}
-                    </td>
-                    <td style={{ ...s.td, color: c.dim }}>
-                      {countryLabel(r.country)}
-                    </td>
-                    <td style={{ ...s.td, color: c.dim }}>
-                      {langLabel(r.language)}
-                    </td>
-                    <td style={{ ...s.td, fontSize: 11, color: c.dim }}>{r.email}</td>
-                    <td style={s.td}>
-                      <span
-                        style={s.chip(
-                          r.status === "sent" ? c.ok : r.status === "failed" ? c.err : c.warn,
-                        )}
-                      >
-                        {r.status === "sent" ? "enviado" : r.status === "failed" ? "falló" : r.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* SECTION 6: BÚSQUEDA */}
         <DiscoverySection runs={runs} />
 
         <AgencySection stats={agencyStats} lastRun={lastAgencyRun} />

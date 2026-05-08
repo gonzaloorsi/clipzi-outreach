@@ -11,7 +11,6 @@ import { neon } from "@neondatabase/serverless";
 import {
   getKPIs,
   getPipeline,
-  getRecentSends,
   getSenderPool,
   getSendWindowState,
   getDiscoveryRuns,
@@ -105,24 +104,6 @@ check(
   "channels with status='sent' in pipeline === sends count",
   sentInPipeline === kpis.totalSent,
   `pipeline=${sentInPipeline} sends=${kpis.totalSent}`,
-);
-
-console.log("\n═══ Recent sends (latest 5) ═══");
-const recent = await getRecentSends(5);
-console.table(
-  recent.map((r) => ({
-    sent_at: r.sent_at ? String(r.sent_at).slice(0, 19) : "(null)",
-    channel: (r.clean_name || r.channel_title || "").slice(0, 30),
-    country: r.country ?? "-",
-    lang: r.language ?? "-",
-    sender: r.sender ?? "-",
-    status: r.status,
-  })),
-);
-check(
-  "recent sends have sent_at OR are pre-populated legacy",
-  recent.length === 0 || recent.every((r) => r.sent_at !== null || r.email),
-  `${recent.length} rows`,
 );
 
 console.log("\n═══ Sender pool ═══");

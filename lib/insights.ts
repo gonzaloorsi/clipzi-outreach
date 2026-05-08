@@ -89,49 +89,6 @@ export async function getPipeline(): Promise<PipelineStage[]> {
   return result.rows ?? result;
 }
 
-// ─── Recent sends ────────────────────────────────────────────────────────
-
-export interface RecentSend {
-  channel_id: string;
-  channel_title: string;
-  clean_name: string | null;
-  email: string;
-  status: string;
-  language: string | null;
-  template_id: string | null;
-  country: string | null;
-  subscribers: number | null;
-  score: number | null;
-  sender: string | null;
-  sent_at: string | null;
-  error_message: string | null;
-}
-
-export async function getRecentSends(limit = 20): Promise<RecentSend[]> {
-  const result = await db.execute<RecentSend & Record<string, unknown>>(sql`
-    SELECT
-      s.channel_id,
-      c.title AS channel_title,
-      c.clean_name,
-      s.email,
-      s.status,
-      s.language,
-      s.template_id,
-      c.country,
-      c.subscribers,
-      c.score,
-      snd.email AS sender,
-      s.sent_at,
-      s.error_message
-    FROM sends s
-    JOIN channels c ON c.id = s.channel_id
-    LEFT JOIN senders snd ON snd.id = s.sender_id
-    ORDER BY COALESCE(s.sent_at, s.created_at) DESC
-    LIMIT ${limit}
-  `);
-  return result.rows ?? result;
-}
-
 // ─── Senders pool ────────────────────────────────────────────────────────
 
 export interface SenderRow {
