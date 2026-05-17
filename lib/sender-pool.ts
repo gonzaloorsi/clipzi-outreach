@@ -23,12 +23,12 @@ export interface PickedSender {
 }
 
 /**
- * Read SENDER_EMAIL (legacy, no suffix) and SENDER_EMAIL_1..10 from env.
+ * Read SENDER_EMAIL (legacy, no suffix) and SENDER_EMAIL_1..20 from env.
  * Numbered form is preferred (consistent with YOUTUBE_API_KEY_1..10).
  */
 export function loadSenderEmails(): string[] {
   const candidates = [process.env.SENDER_EMAIL];
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 20; i++) {
     candidates.push(process.env[`SENDER_EMAIL_${i}`]);
   }
   const present = candidates.filter((e): e is string => Boolean(e?.trim())).map((e) => e.trim().toLowerCase());
