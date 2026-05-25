@@ -82,13 +82,6 @@ const KIND_LABEL: Record<string, string> = {
   "media-org": "Medios",
 };
 
-function fmtSubs(n: number | null): string {
-  if (n === null || n === undefined) return "-";
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
-}
-
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -108,8 +101,6 @@ function countBy<T>(items: T[], key: (t: T) => string): Array<{ key: string; cnt
     .map(([key, cnt]) => ({ key, cnt }))
     .sort((a, b) => b.cnt - a.cnt);
 }
-
-const MAX_SENT_ROWS = 300; // emails can be long; cap the sent table, failures always shown
 
 function buildDailyDigestHtml(input: DailyDigestInput): string {
   const dateLabel = fmtInTz(input.generatedAt, {
@@ -188,36 +179,6 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
             .join("")}</tbody>
         </table>`;
 
-  const shownSent = sentRows.slice(0, MAX_SENT_ROWS);
-  const sentTable =
-    sentRows.length === 0
-      ? `<p style="color:#888;font-style:italic;">No se envió nada en la ventana. Si esto se repite, revisá el cron de envío o la cartera.</p>`
-      : `<table style="border-collapse:collapse;width:100%;font-size:13px;">
-          <thead><tr style="background:#fafafa;text-align:left;">
-            <th style="padding:8px;border-bottom:2px solid #ddd;">Contacto</th>
-            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:right;">Subs</th>
-            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">País</th>
-            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">Idioma</th>
-            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">Tipo</th>
-            <th style="padding:8px;border-bottom:2px solid #ddd;">Email</th>
-            <th style="padding:8px;border-bottom:2px solid #ddd;">Sender</th>
-          </tr></thead>
-          <tbody>${shownSent
-            .map(
-              (r) => `<tr>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.channelName)}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${fmtSubs(r.subscribers)}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${escapeHtml(r.country ?? "-")}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${escapeHtml(r.language ?? "-")}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:11px;">${escapeHtml(KIND_LABEL[r.kind] ?? r.kind)}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.email)}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#444;font-size:11px;">${escapeHtml(r.senderEmail ?? "-")}</td>
-              </tr>`,
-            )
-            .join("")}</tbody>
-        </table>
-        ${sentRows.length > MAX_SENT_ROWS ? `<p style="color:#888;font-size:12px;">y ${sentRows.length - MAX_SENT_ROWS} más.</p>` : ""}`;
-
   return `<div style="font-family:system-ui,-apple-system,sans-serif;color:#222;max-width:900px;">
     <h2 style="margin:0 0 4px 0;">Resumen del día · ${escapeHtml(dateLabel)}</h2>
     <p style="margin:0 0 16px 0;color:#666;font-size:13px;">
@@ -256,9 +217,6 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
 
     <h3 style="margin:0 0 6px 0;font-size:14px;">Fallos</h3>
     <div style="margin-bottom:18px;">${failuresBlock}</div>
-
-    <h3 style="margin:0 0 6px 0;font-size:14px;">Enviados</h3>
-    ${sentTable}
   </div>`;
 }
 
