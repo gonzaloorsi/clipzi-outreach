@@ -1,9 +1,14 @@
-// Outreach report email — sent after each cron run that produced sends.
-// Replaces the daily report the legacy GHA cron used to email at 7:47 AM.
+// Daily outreach digest — one email per day summarizing the last 24h of sends.
+// Fired by /api/cron/daily-report (Vercel Cron at 00:00 UTC = 21:00 ART).
+//
+// Replaces the old per-tick report that emailed after every hourly send run.
+// The send cron still runs hourly and sends outreach; it just no longer emails.
 //
 // Recipient defaults to gonzaloorsi@gmail.com (override with REPORT_EMAIL).
 // From address must be on a Resend-verified domain — uses REPORT_FROM_EMAIL
 // or falls back to the first configured sender (already verified for outreach).
+//
+// Style: no em-dashes (—) or en-dashes (–) anywhere, per the project email rule.
 
 import { Resend } from "resend";
 
@@ -18,6 +23,8 @@ function client(): Resend {
   return _client;
 }
 
+// Per-send result shape — still used by the send cron to type its HTTP-response
+// `results` array. The daily digest builds its own rows from the DB instead.
 export interface ReportSendResult {
   channelId: string;
   channelTitle: string;
@@ -33,31 +40,47 @@ export interface ReportSendResult {
   error?: string;
 }
 
-export interface ReportInput {
-  runStartedAt: Date;
-  runDurationMs: number;
-  sent: number;
-  failed: number;
-  results: ReportSendResult[];
-  // Pipeline / context
-  totalDailyCapacity: number;
-  queuedRemaining: number;
-  totalSentAllTime: number;
-  // Window info
-  window: {
-    bypassed: boolean;
-    hours: string;
-    activeCountries: number | null;
+// ─── Daily digest ──────────────────────────────────────────────────────────
+
+export interface DailyDigestRow {
+  status: string; // 'sent' | 'failed'
+  email: string;
+  senderEmail: string | null;
+  language: string | null;
+  country: string | null;
+  subscribers: number | null;
+  channelName: string;
+  kind: string; // creator | agency | standup-individual | standup-org | media-org
+  error: string | null;
+  sentAt: string | null;
+}
+
+export interface DailyDigestInput {
+  generatedAt: Date;
+  windowHours: number;
+  rows: DailyDigestRow[];
+  pipeline: {
+    queuedSendable: number;
+    totalSentAllTime: number;
+    totalDailyCapacity: number;
   };
-  // Per-sender 24h count for sender pool visibility
-  senderStats: Array<{
-    email: string;
-    sent24h: number;
-    dailyLimit: number;
-  }>;
-  // What committed this code (helps debugging)
+  senderStats: Array<{ email: string; sent24h: number; dailyLimit: number }>;
   version: string;
 }
+
+const REPORT_TZ = "America/Argentina/Buenos_Aires";
+
+function fmtInTz(d: Date, opts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("es-AR", { timeZone: REPORT_TZ, ...opts }).format(d);
+}
+
+const KIND_LABEL: Record<string, string> = {
+  creator: "Creadores",
+  agency: "Agencias",
+  "standup-individual": "Standup (individuos)",
+  "standup-org": "Standup (orgs)",
+  "media-org": "Medios",
+};
 
 function fmtSubs(n: number | null): string {
   if (n === null || n === undefined) return "-";
@@ -75,31 +98,65 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildReportHtml(input: ReportInput): string {
-  const date = input.runStartedAt.toISOString().replace("T", " ").slice(0, 19);
-  const durationS = (input.runDurationMs / 1000).toFixed(1);
+function countBy<T>(items: T[], key: (t: T) => string): Array<{ key: string; cnt: number }> {
+  const m = new Map<string, number>();
+  for (const it of items) {
+    const k = key(it);
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return [...m.entries()]
+    .map(([key, cnt]) => ({ key, cnt }))
+    .sort((a, b) => b.cnt - a.cnt);
+}
 
-  const rows = input.results
-    .map((r) => {
-      const statusBadge =
-        r.status === "sent"
-          ? `<span style="color:#0a7d2c;font-weight:600;">✓ sent</span>`
-          : r.status === "sent_db_failed"
-            ? `<span style="color:#b58105;font-weight:600;">⚠ DB write failed</span>`
-            : `<span style="color:#b00020;font-weight:600;">✗ failed</span>`;
-      const errorCell = r.error
-        ? `<div style="color:#666;font-size:11px;margin-top:2px;">${escapeHtml(r.error.slice(0, 200))}</div>`
-        : "";
-      return `<tr>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.cleanName || r.channelTitle)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${fmtSubs(r.subscribers)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${escapeHtml(r.country ?? "-")}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${escapeHtml(r.language)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.email)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#444;font-size:11px;">${escapeHtml(r.senderEmail)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;">${statusBadge}${errorCell}</td>
-      </tr>`;
-    })
+const MAX_SENT_ROWS = 300; // emails can be long; cap the sent table, failures always shown
+
+function buildDailyDigestHtml(input: DailyDigestInput): string {
+  const dateLabel = fmtInTz(input.generatedAt, {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const timeLabel = fmtInTz(input.generatedAt, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const sentRows = input.rows.filter((r) => r.status === "sent");
+  const failedRows = input.rows.filter((r) => r.status === "failed");
+  const sent = sentRows.length;
+  const failed = failedRows.length;
+
+  // Per-vertical: sent + failed counts
+  const verticalKinds = [...new Set(input.rows.map((r) => r.kind))];
+  const byVertical = verticalKinds
+    .map((kind) => ({
+      kind,
+      sent: sentRows.filter((r) => r.kind === kind).length,
+      failed: failedRows.filter((r) => r.kind === kind).length,
+    }))
+    .sort((a, b) => b.sent - a.sent);
+
+  const byLanguage = countBy(sentRows, (r) => r.language || "?");
+  const byCountry = countBy(sentRows, (r) => r.country || "(null)").slice(0, 15);
+
+  const verticalCards = byVertical
+    .map(
+      (v) => `<div style="background:#f5f5f5;padding:8px 12px;border-radius:6px;font-size:13px;min-width:120px;">
+        <strong>${escapeHtml(KIND_LABEL[v.kind] ?? v.kind)}</strong><br/>
+        ${v.sent} enviados${v.failed > 0 ? `, ${v.failed} fallidos` : ""}
+      </div>`,
+    )
+    .join("");
+
+  const langChips = byLanguage
+    .map((l) => `<span style="display:inline-block;background:#eef;padding:2px 8px;border-radius:4px;margin:2px;font-size:12px;">${escapeHtml(l.key)}: ${l.cnt}</span>`)
+    .join("");
+
+  const countryChips = byCountry
+    .map((cc) => `<span style="display:inline-block;background:#efe;padding:2px 8px;border-radius:4px;margin:2px;font-size:12px;">${escapeHtml(cc.key)}: ${cc.cnt}</span>`)
     .join("");
 
   const senderRows = input.senderStats
@@ -109,23 +166,78 @@ function buildReportHtml(input: ReportInput): string {
     )
     .join("");
 
+  const failuresBlock =
+    failedRows.length === 0
+      ? `<p style="color:#0a7d2c;font-size:13px;">Sin fallos en la ventana. 👌</p>`
+      : `<table style="border-collapse:collapse;width:100%;font-size:13px;">
+          <thead><tr style="background:#fff4f4;text-align:left;">
+            <th style="padding:8px;border-bottom:2px solid #f0caca;">Contacto</th>
+            <th style="padding:8px;border-bottom:2px solid #f0caca;">Email</th>
+            <th style="padding:8px;border-bottom:2px solid #f0caca;">Sender</th>
+            <th style="padding:8px;border-bottom:2px solid #f0caca;">Error</th>
+          </tr></thead>
+          <tbody>${failedRows
+            .map(
+              (r) => `<tr>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.channelName)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.email)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#444;font-size:11px;">${escapeHtml(r.senderEmail ?? "-")}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#b00020;font-size:11px;">${escapeHtml((r.error ?? "").slice(0, 200))}</td>
+              </tr>`,
+            )
+            .join("")}</tbody>
+        </table>`;
+
+  const shownSent = sentRows.slice(0, MAX_SENT_ROWS);
+  const sentTable =
+    sentRows.length === 0
+      ? `<p style="color:#888;font-style:italic;">No se envió nada en la ventana. Si esto se repite, revisá el cron de envío o la cartera.</p>`
+      : `<table style="border-collapse:collapse;width:100%;font-size:13px;">
+          <thead><tr style="background:#fafafa;text-align:left;">
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Contacto</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:right;">Subs</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">País</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">Idioma</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">Tipo</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Email</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Sender</th>
+          </tr></thead>
+          <tbody>${shownSent
+            .map(
+              (r) => `<tr>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.channelName)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${fmtSubs(r.subscribers)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${escapeHtml(r.country ?? "-")}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${escapeHtml(r.language ?? "-")}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:11px;">${escapeHtml(KIND_LABEL[r.kind] ?? r.kind)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.email)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#444;font-size:11px;">${escapeHtml(r.senderEmail ?? "-")}</td>
+              </tr>`,
+            )
+            .join("")}</tbody>
+        </table>
+        ${sentRows.length > MAX_SENT_ROWS ? `<p style="color:#888;font-size:12px;">y ${sentRows.length - MAX_SENT_ROWS} más.</p>` : ""}`;
+
   return `<div style="font-family:system-ui,-apple-system,sans-serif;color:#222;max-width:900px;">
-    <h2 style="margin:0 0 4px 0;">Outreach run: ${escapeHtml(date)} UTC</h2>
+    <h2 style="margin:0 0 4px 0;">Resumen del día · ${escapeHtml(dateLabel)}</h2>
     <p style="margin:0 0 16px 0;color:#666;font-size:13px;">
-      Sent ${input.sent} · Failed ${input.failed} · Duration ${durationS}s · Version ${escapeHtml(input.version)}
+      Generado ${escapeHtml(timeLabel)} ART · ventana últimas ${input.windowHours}h · versión ${escapeHtml(input.version)}
     </p>
 
     <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-      <div style="background:#f5f5f5;padding:10px 14px;border-radius:6px;font-size:13px;">
-        <strong>Pipeline</strong><br/>
-        Queued: ${input.queuedRemaining}<br/>
-        Sent all-time: ${input.totalSentAllTime}<br/>
-        Daily capacity: ${input.totalDailyCapacity}
+      <div style="background:#e8f5e9;padding:12px 18px;border-radius:6px;">
+        <div style="font-size:28px;font-weight:700;line-height:1;">${sent}</div>
+        <div style="font-size:12px;color:#555;">enviados</div>
+      </div>
+      <div style="background:${failed > 0 ? "#ffebee" : "#f5f5f5"};padding:12px 18px;border-radius:6px;">
+        <div style="font-size:28px;font-weight:700;line-height:1;">${failed}</div>
+        <div style="font-size:12px;color:#555;">fallidos</div>
       </div>
       <div style="background:#f5f5f5;padding:10px 14px;border-radius:6px;font-size:13px;">
-        <strong>Window</strong><br/>
-        Hours: ${escapeHtml(input.window.hours)}${input.window.bypassed ? " (BYPASSED)" : ""}<br/>
-        Active countries: ${input.window.activeCountries ?? "n/a"}
+        <strong>Pipeline</strong><br/>
+        En cartera (queued): ${input.pipeline.queuedSendable}<br/>
+        Enviados histórico: ${input.pipeline.totalSentAllTime}<br/>
+        Capacidad diaria: ${input.pipeline.totalDailyCapacity}
       </div>
       <div style="background:#f5f5f5;padding:10px 14px;border-radius:6px;font-size:13px;">
         <strong>Senders (24h)</strong>
@@ -133,28 +245,24 @@ function buildReportHtml(input: ReportInput): string {
       </div>
     </div>
 
-    ${
-      input.results.length === 0
-        ? `<p style="color:#888;font-style:italic;">(no per-channel results to show)</p>`
-        : `<table style="border-collapse:collapse;width:100%;font-size:13px;">
-            <thead>
-              <tr style="background:#fafafa;text-align:left;">
-                <th style="padding:8px;border-bottom:2px solid #ddd;">Channel</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;text-align:right;">Subs</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">Country</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;text-align:center;">Lang</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;">Email</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;">Sender</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;">Status</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>`
-    }
+    <h3 style="margin:0 0 6px 0;font-size:14px;">Por vertical</h3>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">${verticalCards || '<span style="color:#888;">-</span>'}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">Por idioma</h3>
+    <div style="margin-bottom:12px;">${langChips || '<span style="color:#888;">-</span>'}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">Por país</h3>
+    <div style="margin-bottom:18px;">${countryChips || '<span style="color:#888;">-</span>'}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">Fallos</h3>
+    <div style="margin-bottom:18px;">${failuresBlock}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">Enviados</h3>
+    ${sentTable}
   </div>`;
 }
 
-export async function sendOutreachReport(input: ReportInput): Promise<{
+export async function sendDailyDigest(input: DailyDigestInput): Promise<{
   ok: boolean;
   messageId?: string;
   error?: string;
@@ -165,16 +273,18 @@ export async function sendOutreachReport(input: ReportInput): Promise<{
     process.env.SENDER_EMAIL_1 ||
     process.env.SENDER_EMAIL ||
     "";
-  const fromName = process.env.SENDER_NAME || "Clipzi Outreach Bot";
 
   if (!fromEmail) {
     return { ok: false, error: "no REPORT_FROM_EMAIL or SENDER_EMAIL_1 configured" };
   }
 
-  const date = input.runStartedAt.toISOString().slice(0, 10);
-  const subject = `Outreach ${date} ${input.runStartedAt
-    .toISOString()
-    .slice(11, 16)}Z — sent ${input.sent}, failed ${input.failed}`;
+  const sent = input.rows.filter((r) => r.status === "sent").length;
+  const failed = input.rows.filter((r) => r.status === "failed").length;
+  const dateLabel = fmtInTz(input.generatedAt, {
+    day: "2-digit",
+    month: "2-digit",
+  });
+  const subject = `Clipzi · resumen del día ${dateLabel}: ${sent} enviados, ${failed} fallidos`;
 
   try {
     const { data, error } = await client().emails.send({
@@ -182,7 +292,7 @@ export async function sendOutreachReport(input: ReportInput): Promise<{
       to: [recipient],
       replyTo: fromEmail,
       subject,
-      html: buildReportHtml(input),
+      html: buildDailyDigestHtml(input),
     });
     if (error) {
       return { ok: false, error: error.message ?? JSON.stringify(error) };

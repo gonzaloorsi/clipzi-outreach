@@ -27,7 +27,7 @@ import {
   getTotalDailyCapacity,
 } from "@/lib/sender-pool";
 import { activeCountries, parseSendWindow } from "@/lib/timezone";
-import { sendOutreachReport, type ReportSendResult } from "@/lib/report";
+import type { ReportSendResult } from "@/lib/report";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -464,79 +464,9 @@ export async function GET(req: NextRequest) {
       `done — sent=${sent} failed=${failed} stopped=${stoppedReason ?? "none"}`,
     );
 
-    // ─── 4. Send report email (only if there were attempts and not dry) ──
-    let reportStatus: { ok: boolean; error?: string; messageId?: string } | null = null;
-    if (!dryRun && (sent > 0 || failed > 0)) {
-      try {
-        const [queuedRemainingRow, totalSentRow, senderStatsRows] =
-          await Promise.all([
-            db.execute<{ cnt: number }>(sql`
-              SELECT COUNT(*)::int AS cnt FROM channels
-              WHERE status = 'queued' AND primary_email IS NOT NULL
-                AND primary_email NOT IN (SELECT email FROM sends)
-                AND primary_email NOT IN (SELECT email FROM unsubscribes)
-            `),
-            db.execute<{ cnt: number }>(sql`
-              SELECT COUNT(*)::int AS cnt FROM sends WHERE status = 'sent'
-            `),
-            db.execute<{ email: string; sent_24h: number; daily_limit: number }>(sql`
-              SELECT s.email, s.daily_limit,
-                COALESCE((
-                  SELECT COUNT(*)::int FROM sends
-                  WHERE sender_id = s.id AND status = 'sent'
-                    AND sent_at > NOW() - INTERVAL '24 hours'
-                ), 0) AS sent_24h
-              FROM senders s
-              WHERE s.state = 'active'
-              ORDER BY s.email
-            `),
-          ]);
-
-        const queuedRemaining =
-          (queuedRemainingRow.rows ?? queuedRemainingRow)[0]?.cnt ?? 0;
-        const totalSentAllTime =
-          (totalSentRow.rows ?? totalSentRow)[0]?.cnt ?? 0;
-        const senderStats = (senderStatsRows.rows ?? senderStatsRows).map(
-          (r) => ({
-            email: r.email,
-            sent24h: r.sent_24h,
-            dailyLimit: r.daily_limit,
-          }),
-        );
-
-        // Strip the internal-only fields before passing to report
-        const reportResults = results
-          .filter((r) => !r.dry)
-          .map(({ dry: _dry, sender: _s, ...rest }) => rest);
-
-        reportStatus = await sendOutreachReport({
-          runStartedAt: new Date(startedAt),
-          runDurationMs: Date.now() - startedAt,
-          sent,
-          failed,
-          results: reportResults,
-          totalDailyCapacity,
-          queuedRemaining,
-          totalSentAllTime,
-          window: {
-            bypassed: ignoreWindow,
-            hours: `${sendWindow.start}-${sendWindow.end}`,
-            activeCountries: activeCountryList?.length ?? null,
-          },
-          senderStats,
-          version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
-        });
-        if (reportStatus.ok) {
-          log(`report email sent (id=${reportStatus.messageId})`);
-        } else {
-          log(`⚠️  report email failed: ${reportStatus.error}`);
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        log(`⚠️  report build failed (cron itself OK): ${msg}`);
-        reportStatus = { ok: false, error: msg };
-      }
-    }
+    // NOTE: this cron no longer emails a report per tick. The daily digest at
+    // /api/cron/daily-report (00:00 UTC = 21:00 ART) summarizes the whole day
+    // in a single email. The send cron stays send-only.
 
     return NextResponse.json({
       ok: true,
@@ -578,7 +508,6 @@ export async function GET(req: NextRequest) {
       },
       durationMs: Date.now() - startedAt,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
-      report: reportStatus,
       results: dryRun ? results : results.slice(0, 10),
     });
   } catch (e: unknown) {
