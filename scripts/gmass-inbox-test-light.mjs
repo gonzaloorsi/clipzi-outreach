@@ -3,8 +3,8 @@
 // matrix that gmass-inbox-test.mjs produces. Use this for quick spot-checks
 // across all senders without burning 240 emails.
 //
-// Pairs sender i → SEEDS[i % SEEDS.length]. With 16 senders and 15 seeds,
-// sender 16 wraps to seed 0. Each sender uses a distinct channelName so
+// Pairs sender i → SEEDS[i % SEEDS.length]. With 18 senders and 15 seeds,
+// senders 16-18 wrap to seeds 0-2. Each sender uses a distinct channelName so
 // subjects don't collide with the full-matrix script's subjects in GMass UI.
 
 import { config } from "dotenv";
@@ -56,6 +56,8 @@ const ASSIGNMENT = [
   { from: "g@clipzi.lat",      channelName: "Buen Lunes" },
   { from: "g@clipzi.live",     channelName: "Mañana Sylvestre" },
   { from: "g@clipzi.one",      channelName: "Por La Mañana" },
+  { from: "g@clipzi.online",   channelName: "Paren La Mano" },
+  { from: "g@clipzi.page",     channelName: "Ángel Responde" },
 ];
 
 const onlyFlag = process.argv.find((a) => a.startsWith("--only="));
