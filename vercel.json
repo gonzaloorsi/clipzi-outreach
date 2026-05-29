@@ -26,7 +26,7 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/lead-replies",
+      "path": "/api/cron/lead-replies?sinceDays=65&scanCap=300&max=20",
       "schedule": "13,43 * * * *"
     }
   ],
