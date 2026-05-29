@@ -20,8 +20,10 @@ function client(): Resend {
   return _client;
 }
 
-// Where future lead replies should land. The whole pipeline assumes one inbox.
-const REPLY_TO = process.env.LEAD_REPLY_INBOX || "gonzaloorsi@gmail.com";
+// By default replies go to the From alias (g@clipzi.x), which already forwards
+// to the shared inbox — on-brand and matches the original outreach. Set
+// LEAD_REPLY_INBOX to force a specific Reply-To instead.
+const REPLY_TO = process.env.LEAD_REPLY_INBOX || "";
 
 export interface SendReplyParams {
   fromAlias: string; // e.g. "g@clipzi.tech"
@@ -73,7 +75,7 @@ export async function sendReply(params: SendReplyParams): Promise<SendReplyResul
     const { data, error } = await client().emails.send({
       from: `${params.fromName} <${params.fromAlias}>`,
       to: [params.to],
-      replyTo: REPLY_TO,
+      ...(REPLY_TO ? { replyTo: REPLY_TO } : {}),
       subject,
       text: params.bodyText,
       headers,
@@ -95,7 +97,7 @@ export function buildRfc822(params: SendReplyParams, rfc822MessageId: string): s
   const headers = [
     `From: ${params.fromName} <${params.fromAlias}>`,
     `To: ${params.to}`,
-    `Reply-To: ${REPLY_TO}`,
+    REPLY_TO ? `Reply-To: ${REPLY_TO}` : null,
     `Subject: ${encodeHeader(reSubject(params.subject))}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: ${rfc822MessageId}`,
