@@ -131,6 +131,29 @@ function isAutomated(msg: GmailMessage): boolean {
   return false;
 }
 
+const SHARED_INBOX = (process.env.LEAD_REPLY_INBOX || "gonzaloorsi@gmail.com").toLowerCase();
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+
+/**
+ * Reply-all recipients: everyone the lead had on To/Cc, minus the lead itself,
+ * our own aliases, the shared inbox, and noreply/automated addresses. Empty for
+ * a normal 1:1 thread (no Cc).
+ */
+function ccRecipients(msg: GmailMessage, leadEmail: string): string[] {
+  const raw = `${header(msg, "To") ?? ""},${header(msg, "Cc") ?? ""}`;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of raw.match(EMAIL_RE) ?? []) {
+    const a = m.toLowerCase();
+    if (a === leadEmail.toLowerCase() || a === SHARED_INBOX) continue;
+    if (OWN_FROM_RE.test(a) || AUTOMATED_FROM.test(a)) continue;
+    if (seen.has(a)) continue;
+    seen.add(a);
+    out.push(a);
+  }
+  return out;
+}
+
 function condenseThread(thread: GmailThread): string {
   const parts: string[] = [];
   for (const msg of thread.messages) {
@@ -419,10 +442,12 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       continue;
     }
 
+    const cc = ccRecipients(last, leadEmail);
     const replyParams: SendReplyParams = {
       fromAlias: alias!,
       fromName: FROM_NAME,
       to: leadEmail,
+      cc,
       subject: subject ?? `${channelName} x Clipzi`,
       bodyText: body,
       inReplyToMessageId: header(last, "Message-ID") ?? header(last, "Message-Id"),
@@ -451,7 +476,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       console.error("[lead-replies] Sent mirror failed for", threadId, e);
     }
 
-    log(`SENT "${channelName}" <${leadEmail}> from ${alias} code=${code ?? "none"}`);
+    log(`SENT "${channelName}" <${leadEmail}>${cc.length ? ` cc=[${cc.join(",")}]` : ""} from ${alias} code=${code ?? "none"}`);
     await addThreadLabels(threadId, [await labelRespondido()]);
     await recordProcessed(threadId, leadEmail, channelName, alias, "sent", code ?? null, last.id, decision.reason, body);
     outcomes.push({

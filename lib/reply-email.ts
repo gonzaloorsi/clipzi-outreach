@@ -29,6 +29,7 @@ export interface SendReplyParams {
   fromAlias: string; // e.g. "g@clipzi.tech"
   fromName: string; // e.g. "Gonzalo Orsi"
   to: string; // the lead's email
+  cc?: string[]; // reply-all: other real participants the lead had on To/Cc
   subject: string; // original subject; "Re: " is prefixed if missing
   bodyText: string; // plain-text reply (Gonza's voice)
   inReplyToMessageId: string | null; // RFC822 Message-ID of the lead's last msg
@@ -75,6 +76,7 @@ export async function sendReply(params: SendReplyParams): Promise<SendReplyResul
     const { data, error } = await client().emails.send({
       from: `${params.fromName} <${params.fromAlias}>`,
       to: [params.to],
+      ...(params.cc?.length ? { cc: params.cc } : {}),
       ...(REPLY_TO ? { replyTo: REPLY_TO } : {}),
       subject,
       text: params.bodyText,
@@ -97,6 +99,7 @@ export function buildRfc822(params: SendReplyParams, rfc822MessageId: string): s
   const headers = [
     `From: ${params.fromName} <${params.fromAlias}>`,
     `To: ${params.to}`,
+    params.cc?.length ? `Cc: ${params.cc.join(", ")}` : null,
     REPLY_TO ? `Reply-To: ${REPLY_TO}` : null,
     `Subject: ${encodeHeader(reSubject(params.subject))}`,
     `Date: ${new Date().toUTCString()}`,
