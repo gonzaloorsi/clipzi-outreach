@@ -1,0 +1,1 @@
+ALTER TABLE "processed_threads" ADD COLUMN "reply_body" text;

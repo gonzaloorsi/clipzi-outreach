@@ -326,6 +326,33 @@ export const emailValidations = pgTable(
   }),
 );
 
+// ─── processed_threads ────────────────────────────────────────────────────
+// Idempotency for the lead-reply agent. One row per Gmail thread we've handled.
+// `last_message_id` is the lead message we acted on; if the lead sends a NEWER
+// message the agent picks the thread up again (id won't match). `action` ∈
+// {sent, escalate, skip, automated}.
+
+export const processedThreads = pgTable(
+  "processed_threads",
+  {
+    threadId: text("thread_id").primaryKey(),
+    leadEmail: text("lead_email"),
+    channelName: text("channel_name"),
+    alias: text("alias"), // the clipzi.* address we replied from
+    action: text("action").notNull(),
+    code: text("code"), // Stripe promotion code, if one was minted
+    replyBody: text("reply_body"), // the reply text (final for sent, suggested for escalate)
+    lastMessageId: text("last_message_id"),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    actionIdx: index("processed_threads_action_idx").on(t.action),
+    createdAtIdx: index("processed_threads_created_at_idx").on(t.createdAt),
+  }),
+);
+
 // ─── Type exports ───────────────────────────────────────────────────────────
 
 export type Channel = typeof channels.$inferSelect;
@@ -345,3 +372,5 @@ export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
 export type EmailValidation = typeof emailValidations.$inferSelect;
 export type NewEmailValidation = typeof emailValidations.$inferInsert;
+export type ProcessedThread = typeof processedThreads.$inferSelect;
+export type NewProcessedThread = typeof processedThreads.$inferInsert;

@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/daily-report",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/lead-replies",
+      "schedule": "13,43 * * * *"
     }
   ],
   "functions": {
@@ -44,6 +48,9 @@
     },
     "app/api/cron/daily-report/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/lead-replies/route.ts": {
+      "maxDuration": 300
     }
   }
 }

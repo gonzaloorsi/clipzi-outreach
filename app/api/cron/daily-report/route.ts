@@ -107,7 +107,33 @@ export async function GET(req: NextRequest) {
         dailyLimit: s.daily_limit,
       }));
 
-    log(`window=${windowHours}h sent=${sent} failed=${failed} dry=${dryRun}`);
+    // Lead-reply agent activity in the window (auto-sent replies + escalations).
+    const aiRes = await db.execute<{
+      channel_name: string | null;
+      lead_email: string | null;
+      alias: string | null;
+      code: string | null;
+      action: string;
+      reply_body: string | null;
+      created_at: string | null;
+    }>(sql`
+      SELECT channel_name, lead_email, alias, code, action, reply_body, created_at
+      FROM processed_threads
+      WHERE created_at > NOW() - INTERVAL '1 hour' * ${windowHours}
+        AND action IN ('sent', 'escalate')
+      ORDER BY created_at DESC
+    `);
+    const aiReplies = (aiRes.rows ?? aiRes).map((r) => ({
+      channelName: r.channel_name || r.lead_email || "(unknown)",
+      leadEmail: r.lead_email ?? "",
+      alias: r.alias ?? null,
+      code: r.code ?? null,
+      action: r.action,
+      replyBody: r.reply_body ?? null,
+      createdAt: r.created_at ?? null,
+    }));
+
+    log(`window=${windowHours}h sent=${sent} failed=${failed} aiReplies=${aiReplies.length} dry=${dryRun}`);
 
     if (dryRun) {
       return NextResponse.json({
@@ -123,6 +149,7 @@ export async function GET(req: NextRequest) {
           totalDailyCapacity: kpis.totalDailyCapacity,
         },
         rows: rows.slice(0, 20),
+        aiReplies,
       });
     }
 
@@ -136,6 +163,7 @@ export async function GET(req: NextRequest) {
         totalDailyCapacity: kpis.totalDailyCapacity,
       },
       senderStats,
+      aiReplies,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
     });
 
