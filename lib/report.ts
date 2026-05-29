@@ -55,6 +55,18 @@ export interface DailyDigestRow {
   sentAt: string | null;
 }
 
+// A reply written by the lead-reply agent in the last window.
+export interface AiReplyRow {
+  channelName: string;
+  leadEmail: string;
+  alias: string | null;
+  code: string | null;
+  action: string; // 'sent' | 'escalate' | 'skip' | 'automated'
+  replyBody: string | null;
+  reason?: string | null;
+  createdAt: string | null;
+}
+
 export interface DailyDigestInput {
   generatedAt: Date;
   windowHours: number;
@@ -65,6 +77,8 @@ export interface DailyDigestInput {
     totalDailyCapacity: number;
   };
   senderStats: Array<{ email: string; sent24h: number; dailyLimit: number }>;
+  aiReplies?: AiReplyRow[];
+  noReplies?: AiReplyRow[];
   version: string;
 }
 
@@ -179,6 +193,60 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
             .join("")}</tbody>
         </table>`;
 
+  // ── AI lead replies in the window ──
+  const aiReplies = input.aiReplies ?? [];
+  const aiSent = aiReplies.filter((r) => r.action === "sent");
+  const aiEscalate = aiReplies.filter((r) => r.action === "escalate");
+  const repliesBlock =
+    aiReplies.length === 0
+      ? `<p style="color:#888;font-size:13px;">Sin respuestas de la IA en la ventana.</p>`
+      : `<p style="margin:0 0 8px 0;font-size:13px;color:#555;">
+           ${aiSent.length} enviadas${aiEscalate.length > 0 ? `, ${aiEscalate.length} para revisar (Clipzi/Revisar)` : ""}
+         </p>
+         <table style="border-collapse:collapse;width:100%;font-size:13px;">
+          <thead><tr style="background:#eef4ff;text-align:left;">
+            <th style="padding:8px;border-bottom:2px solid #c9daf8;">Acción</th>
+            <th style="padding:8px;border-bottom:2px solid #c9daf8;">Contacto</th>
+            <th style="padding:8px;border-bottom:2px solid #c9daf8;">Email</th>
+            <th style="padding:8px;border-bottom:2px solid #c9daf8;">Desde</th>
+            <th style="padding:8px;border-bottom:2px solid #c9daf8;">Código</th>
+          </tr></thead>
+          <tbody>${aiReplies
+            .map(
+              (r) => `<tr>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${r.action === "sent" ? "✅ enviada" : "🔎 revisar"}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.channelName)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.leadEmail)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#444;font-size:11px;">${escapeHtml(r.alias ?? "-")}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;">${escapeHtml(r.code ?? "-")}</td>
+              </tr>
+              <tr><td colspan="5" style="padding:0 8px 10px 8px;border-bottom:1px solid #eee;color:#555;font-size:12px;white-space:pre-wrap;">${escapeHtml((r.replyBody ?? "").slice(0, 500))}</td></tr>`,
+            )
+            .join("")}</tbody>
+        </table>`;
+
+  // ── Threads the agent did NOT reply to (skip / automated), with the reason ──
+  const noReplies = input.noReplies ?? [];
+  const noRepliesBlock =
+    noReplies.length === 0
+      ? `<p style="color:#888;font-size:13px;">Nada para mostrar.</p>`
+      : `<table style="border-collapse:collapse;width:100%;font-size:13px;">
+          <thead><tr style="background:#f5f5f5;text-align:left;">
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Tipo</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Contacto</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Motivo</th>
+          </tr></thead>
+          <tbody>${noReplies
+            .map(
+              (r) => `<tr>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${r.action === "automated" ? "🤖 automático" : "⏭️ sin respuesta"}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.channelName)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#555;font-size:12px;">${escapeHtml((r.reason ?? "").slice(0, 160))}</td>
+              </tr>`,
+            )
+            .join("")}</tbody>
+        </table>`;
+
   return `<div style="font-family:system-ui,-apple-system,sans-serif;color:#222;max-width:900px;">
     <h2 style="margin:0 0 4px 0;">Resumen del día · ${escapeHtml(dateLabel)}</h2>
     <p style="margin:0 0 16px 0;color:#666;font-size:13px;">
@@ -214,6 +282,12 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
 
     <h3 style="margin:0 0 6px 0;font-size:14px;">Por país</h3>
     <div style="margin-bottom:18px;">${countryChips || '<span style="color:#888;">-</span>'}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">Respuestas IA a leads (${input.windowHours}h)</h3>
+    <div style="margin-bottom:18px;">${repliesBlock}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">No respondidos por la IA (${input.windowHours}h)</h3>
+    <div style="margin-bottom:18px;">${noRepliesBlock}</div>
 
     <h3 style="margin:0 0 6px 0;font-size:14px;">Fallos</h3>
     <div style="margin-bottom:18px;">${failuresBlock}</div>
