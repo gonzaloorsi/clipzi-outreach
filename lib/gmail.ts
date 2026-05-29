@@ -217,6 +217,46 @@ export async function addThreadLabels(threadId: string, labelIds: string[]): Pro
   });
 }
 
+export async function removeThreadLabels(threadId: string, labelIds: string[]): Promise<void> {
+  await gapi(`threads/${threadId}/modify`, {
+    method: "POST",
+    body: JSON.stringify({ removeLabelIds: labelIds }),
+  });
+}
+
+/** List thread IDs that carry a given label id (e.g. the manual Clipzi/Responder). */
+export async function searchThreadIdsByLabel(labelId: string, cap = 100): Promise<string[]> {
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({ labelIds: labelId, maxResults: "100" });
+    if (pageToken) params.set("pageToken", pageToken);
+    const page = await gapi<{ threads?: Array<{ id: string }>; nextPageToken?: string }>(
+      `threads?${params}`,
+    );
+    for (const t of page.threads ?? []) ids.push(t.id);
+    pageToken = page.nextPageToken;
+  } while (pageToken && ids.length < cap);
+  return ids.slice(0, cap);
+}
+
+/**
+ * Create a DRAFT reply in a thread (not sent) for human review. Requires the
+ * gmail.modify scope. `rfc822` is the full MIME (From=alias, threading headers).
+ */
+export async function createDraftReply(rfc822: string, threadId: string): Promise<string> {
+  const raw = Buffer.from(rfc822, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const res = await gapi<{ id: string }>("drafts", {
+    method: "POST",
+    body: JSON.stringify({ message: { raw, threadId } }),
+  });
+  return res.id;
+}
+
 // ─── Sent mirror ─────────────────────────────────────────────────────────────
 
 /**

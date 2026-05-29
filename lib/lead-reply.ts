@@ -16,19 +16,27 @@ import { db } from "@/db/client";
 import { processedThreads } from "@/db/schema";
 import {
   addThreadLabels,
+  createDraftReply,
   ensureLabel,
   getThread,
   header,
   insertToSent,
   plainTextBody,
+  removeThreadLabels,
   searchThreadIds,
+  searchThreadIdsByLabel,
   stripQuotedReply,
   type GmailMessage,
   type GmailThread,
 } from "@/lib/gmail";
 import { buildCode, createTrialPromotionCode } from "@/lib/stripe-codes";
 import { buildRfc822, sendReply, type SendReplyParams } from "@/lib/reply-email";
-import { SYSTEM_PROMPT, buildUserPrompt, type ThreadContext } from "@/lib/lead-reply-playbook";
+import {
+  PRESENCE_PROMPT,
+  SYSTEM_PROMPT,
+  buildUserPrompt,
+  type ThreadContext,
+} from "@/lib/lead-reply-playbook";
 
 const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 // Exact slug can be confirmed in the Vercel AI Gateway model list; override via env.
@@ -46,6 +54,8 @@ const LABEL_COLORS: Record<string, { backgroundColor: string; textColor: string 
   "Clipzi/Revisar": { backgroundColor: "#fb4c2f", textColor: "#ffffff" }, // red
   "Clipzi/Sin-respuesta": { backgroundColor: "#999999", textColor: "#ffffff" }, // gray
   "Clipzi/Automatico": { backgroundColor: "#a4c2f4", textColor: "#000000" }, // light blue
+  "Clipzi/Responder": { backgroundColor: "#a479e2", textColor: "#ffffff" }, // purple (you tag it)
+  "Clipzi/Borrador": { backgroundColor: "#ffad47", textColor: "#ffffff" }, // amber (draft ready to review)
 };
 
 const ALIAS_RE = /[a-z0-9._%+-]+@clipzi\.[a-z.]+/gi;
@@ -69,7 +79,7 @@ export interface ThreadOutcome {
   channelName: string;
   leadEmail: string;
   alias: string | null;
-  action: Action | "answered" | "automated" | "already-done" | "error";
+  action: Action | "answered" | "automated" | "already-done" | "error" | "draft";
   reason: string;
   replyPreview?: string;
   code?: string;
@@ -188,7 +198,7 @@ async function retry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 1500): Pro
   throw lastErr;
 }
 
-async function callLLM(ctx: ThreadContext): Promise<Decision> {
+async function callLLM(ctx: ThreadContext, systemPrompt: string = SYSTEM_PROMPT): Promise<Decision> {
   if (!process.env.AI_GATEWAY_API_KEY) throw new Error("AI_GATEWAY_API_KEY not set");
   const content = await retry(async () => {
     const res = await fetch(AI_GATEWAY_URL, {
@@ -201,7 +211,7 @@ async function callLLM(ctx: ThreadContext): Promise<Decision> {
         model: MODEL,
         temperature: 0.4,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: buildUserPrompt(ctx) },
         ],
       }),
@@ -280,6 +290,88 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   const labelRevisar = () => label("Clipzi/Revisar");
   const labelSinRespuesta = () => label("Clipzi/Sin-respuesta");
   const labelAutomatico = () => label("Clipzi/Automatico");
+
+  // ── Presence pass: threads Gonza tagged "Clipzi/Responder" get a warm,
+  //    relationship-first DRAFT (not auto-sent) for him to review and send.
+  //    Calling label() here also ensures the label exists so he can apply it.
+  if (!opts.onlyThreadId) {
+    const responderId = await label("Clipzi/Responder");
+    let presenceIds: string[] = [];
+    try {
+      presenceIds = await retry(() => searchThreadIdsByLabel(responderId, 50));
+    } catch (e) {
+      log(`presence scan failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    log(`presence tagged: ${presenceIds.length}`);
+    for (const threadId of presenceIds) {
+      let thread: GmailThread;
+      try {
+        thread = await getThread(threadId);
+      } catch {
+        continue;
+      }
+      const messages = (thread.messages ?? []).filter(
+        (m) => !(m.labelIds ?? []).includes("TRASH") && !(m.labelIds ?? []).includes("DRAFT"),
+      );
+      if (messages.length === 0) continue;
+      const last = messages[messages.length - 1];
+      if (isOutbound(last)) continue; // Gonza already replied last
+      if (handled.get(threadId) === last.id) continue; // already drafted this message
+      const subject = header(messages[0], "Subject");
+      const channelName = channelFromSubject(subject);
+      const { name: leadName, email: leadEmail } = parseFrom(header(last, "From"));
+      const alias = findAlias(thread, last) ?? "team@clipzi.dev";
+      const ctx: ThreadContext = {
+        leadName,
+        leadEmail,
+        channelName,
+        fromAlias: alias,
+        latestMessage: stripQuotedReply(plainTextBody(last)),
+        fullThread: condenseThread(thread),
+      };
+      let decision: Decision;
+      try {
+        decision = await callLLM(ctx, PRESENCE_PROMPT);
+      } catch (e) {
+        outcomes.push({ threadId, channelName, leadEmail, alias, action: "error", reason: "presence LLM failed", error: e instanceof Error ? e.message : String(e) });
+        continue;
+      }
+      const body = (decision.reply_body || "").trim();
+      if (decision.action !== "send" || body.length < 5) {
+        log(`PRESENCE-SKIP "${channelName}" <${leadEmail}>: ${decision.reason}`);
+        outcomes.push({ threadId, channelName, leadEmail, alias, action: "skip", reason: decision.reason || "presence: nothing to add" });
+        if (!dryRun) {
+          await removeThreadLabels(threadId, [responderId]);
+          await recordProcessed(threadId, leadEmail, channelName, alias, "skip", null, last.id, decision.reason || "presence skip", body || null);
+        }
+        continue;
+      }
+      if (dryRun) {
+        outcomes.push({ threadId, channelName, leadEmail, alias, action: "draft", reason: decision.reason, replyPreview: body });
+        continue;
+      }
+      const params: SendReplyParams = {
+        fromAlias: alias,
+        fromName: FROM_NAME,
+        to: leadEmail,
+        subject: subject ?? "Clipzi",
+        bodyText: body,
+        inReplyToMessageId: header(last, "Message-ID") ?? header(last, "Message-Id"),
+        references: header(last, "References"),
+      };
+      try {
+        await createDraftReply(buildRfc822(params, `<draft-${threadId}@clipzi.app>`), threadId);
+        await addThreadLabels(threadId, [await label("Clipzi/Borrador")]);
+        await removeThreadLabels(threadId, [responderId]);
+        await recordProcessed(threadId, leadEmail, channelName, alias, "drafted", null, last.id, decision.reason, body);
+        log(`DRAFTED "${channelName}" <${leadEmail}> from ${alias}`);
+        outcomes.push({ threadId, channelName, leadEmail, alias, action: "draft", reason: decision.reason, replyPreview: body });
+      } catch (e) {
+        log(`DRAFT-FAILED "${channelName}": ${e instanceof Error ? e.message : String(e)}`);
+        outcomes.push({ threadId, channelName, leadEmail, alias, action: "error", reason: "draft failed", error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+  }
 
   for (const threadId of threadIds) {
     if (acted >= max) break;
