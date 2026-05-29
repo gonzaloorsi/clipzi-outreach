@@ -39,6 +39,15 @@ const OUTREACH_QUERY = 'subject:"x Clipzi"';
 // Japanese, etc.) is held for manual review via Clipzi/Revisar.
 const AUTO_SEND_LANGS = new Set(["es", "en", "pt", "fr", "de", "it"]);
 
+// Gmail label colors (Gmail's fixed palette). Applied at label creation so they
+// survive a label being deleted and recreated.
+const LABEL_COLORS: Record<string, { backgroundColor: string; textColor: string }> = {
+  "Clipzi/Respondido": { backgroundColor: "#16a766", textColor: "#ffffff" }, // green
+  "Clipzi/Revisar": { backgroundColor: "#fb4c2f", textColor: "#ffffff" }, // red
+  "Clipzi/Sin-respuesta": { backgroundColor: "#999999", textColor: "#ffffff" }, // gray
+  "Clipzi/Automatico": { backgroundColor: "#a4c2f4", textColor: "#000000" }, // light blue
+};
+
 const ALIAS_RE = /[a-z0-9._%+-]+@clipzi\.[a-z.]+/gi;
 const OWN_FROM_RE = /@clipzi\.[a-z.]+|g@sausito\.com|g@babadesk\.com/i;
 
@@ -263,8 +272,10 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   log(`start dry=${dryRun} max=${max} query="${query}" scanned=${threadIds.length}`);
 
   // Labels are created lazily and only when we actually need them (not in dry-run).
+  // Colors are set at creation so they survive a label being deleted/recreated.
   const labelCache: Record<string, string> = {};
-  const label = async (name: string) => (labelCache[name] ??= await ensureLabel(name));
+  const label = async (name: string) =>
+    (labelCache[name] ??= await ensureLabel(name, LABEL_COLORS[name]));
   const labelRespondido = () => label("Clipzi/Respondido");
   const labelRevisar = () => label("Clipzi/Revisar");
   const labelSinRespuesta = () => label("Clipzi/Sin-respuesta");

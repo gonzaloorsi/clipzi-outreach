@@ -188,8 +188,13 @@ export async function listLabels(): Promise<GmailLabel[]> {
   return json.labels ?? [];
 }
 
-/** Get a label id by display name, creating it if missing. */
-export async function ensureLabel(name: string): Promise<string> {
+export interface LabelColor {
+  backgroundColor: string;
+  textColor: string;
+}
+
+/** Get a label id by display name, creating it (with optional color) if missing. */
+export async function ensureLabel(name: string, color?: LabelColor): Promise<string> {
   const labels = await listLabels();
   const found = labels.find((l) => l.name === name);
   if (found) return found.id;
@@ -199,6 +204,7 @@ export async function ensureLabel(name: string): Promise<string> {
       name,
       labelListVisibility: "labelShow",
       messageListVisibility: "show",
+      ...(color ? { color } : {}),
     }),
   });
   return created.id;
