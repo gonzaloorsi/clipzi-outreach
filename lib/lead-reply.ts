@@ -142,26 +142,42 @@ function condenseThread(thread: GmailThread): string {
   return parts.join("\n\n---\n\n").slice(0, 6000);
 }
 
+/** Retry a transient async op a few times before giving up (gateway/DB 500s). */
+async function retry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 1500): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
+}
+
 async function callLLM(ctx: ThreadContext): Promise<Decision> {
   if (!process.env.AI_GATEWAY_API_KEY) throw new Error("AI_GATEWAY_API_KEY not set");
-  const res = await fetch(AI_GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0.4,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(ctx) },
-      ],
-    }),
+  const content = await retry(async () => {
+    const res = await fetch(AI_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        temperature: 0.4,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserPrompt(ctx) },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`AI Gateway ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    return json.choices?.[0]?.message?.content ?? "";
   });
-  if (!res.ok) throw new Error(`AI Gateway ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = json.choices?.[0]?.message?.content ?? "";
   const raw = content.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   let parsed: Partial<Decision>;
   try {
@@ -200,13 +216,16 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   const query = `${OUTREACH_QUERY} newer_than:${sinceDays}d`;
   const threadIds = opts.onlyThreadId
     ? [opts.onlyThreadId]
-    : await searchThreadIds(query, scanCap);
+    : await retry(() => searchThreadIds(query, scanCap));
 
   // Load handled state once.
   const handled = new Map<string, string>(); // threadId -> lastMessageId handled
-  for (const row of await db
-    .select({ threadId: processedThreads.threadId, lastMessageId: processedThreads.lastMessageId })
-    .from(processedThreads)) {
+  const handledRows = await retry(() =>
+    db
+      .select({ threadId: processedThreads.threadId, lastMessageId: processedThreads.lastMessageId })
+      .from(processedThreads),
+  );
+  for (const row of handledRows) {
     handled.set(row.threadId, row.lastMessageId ?? "");
   }
 
