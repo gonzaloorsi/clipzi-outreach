@@ -62,9 +62,13 @@ const ASSIGNMENT = [
 
 const onlyFlag = process.argv.find((a) => a.startsWith("--only="));
 const onlyEmail = onlyFlag?.split("=")[1]?.trim().toLowerCase();
-const targets = onlyEmail
-  ? ASSIGNMENT.filter((a) => a.from.toLowerCase() === onlyEmail)
-  : ASSIGNMENT;
+// --limit=N caps how many senders run, so each seed is hit at most once
+// (there are more senders than seeds). 1 per casilla = --limit=<#seeds>.
+const limitFlag = process.argv.find((a) => a.startsWith("--limit="));
+const limit = limitFlag ? parseInt(limitFlag.split("=")[1], 10) : Infinity;
+const targets = (
+  onlyEmail ? ASSIGNMENT.filter((a) => a.from.toLowerCase() === onlyEmail) : ASSIGNMENT
+).slice(0, limit);
 if (onlyEmail && targets.length === 0) {
   console.error(`--only=${onlyEmail} doesn't match any sender in ASSIGNMENT`);
   process.exit(1);

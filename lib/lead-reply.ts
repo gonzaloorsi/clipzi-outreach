@@ -419,6 +419,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       outcomes.push({ ...baseOutcome, action: "automated", reason: "automated/system reply" });
       if (!dryRun) {
         await addThreadLabels(threadId, [await labelAutomatico()]);
+        await removeThreadLabels(threadId, ["INBOX"]); // archive: handled noise
         await recordProcessed(threadId, leadEmail, channelName, null, "automated", null, last.id, "automated");
       }
       continue;
@@ -467,6 +468,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       outcomes.push({ ...baseOutcome, alias, action: "skip", reason: decision.reason });
       if (!dryRun) {
         await addThreadLabels(threadId, [await labelSinRespuesta()]);
+        await removeThreadLabels(threadId, ["INBOX"]); // archive: no reply needed
         await recordProcessed(threadId, leadEmail, channelName, alias, "skip", null, last.id, decision.reason);
       }
       continue;
@@ -589,6 +591,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
 
     log(`SENT "${channelName}" <${leadEmail}>${cc.length ? ` cc=[${cc.join(",")}]` : ""} from ${alias} code=${code ?? "none"}`);
     await addThreadLabels(threadId, [await labelRespondido()]);
+    await removeThreadLabels(threadId, ["INBOX"]); // archive: replied, lives in Respondido + Sent
     await recordProcessed(threadId, leadEmail, channelName, alias, "sent", code ?? null, last.id, decision.reason, body);
     outcomes.push({
       ...baseOutcome,
