@@ -27,7 +27,7 @@
     },
     {
       "path": "/api/cron/lead-replies?sinceDays=65&scanCap=300&max=20",
-      "schedule": "13,43 * * * *"
+      "schedule": "17,47 * * * *"
     }
   ],
   "functions": {
