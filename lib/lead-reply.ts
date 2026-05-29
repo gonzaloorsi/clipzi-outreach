@@ -11,7 +11,7 @@
 //   3. skip automated/system replies (no LLM call)
 //   4. otherwise call the LLM and act on its decision
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { processedThreads } from "@/db/schema";
 import {
@@ -453,6 +453,13 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       continue;
     }
 
+    // Atomic claim: if another (overlapping) run already claimed this exact
+    // message, skip — prevents double-sends from concurrent cron invocations.
+    if (!(await claimSend(threadId, last.id))) {
+      log(`SKIP (race) "${channelName}" <${leadEmail}> already claimed by another run`);
+      continue;
+    }
+
     const cc = ccRecipients(last, leadEmail);
     const replyParams: SendReplyParams = {
       fromAlias: alias!,
@@ -467,6 +474,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     const sent = await sendReply(replyParams);
 
     if (!sent.ok) {
+      await releaseThread(threadId); // let it retry on the next run
       log(`SEND-FAILED "${channelName}" <${leadEmail}>: ${sent.error}`);
       outcomes.push({
         ...baseOutcome,
@@ -516,6 +524,30 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     dryRun,
     model: MODEL,
   };
+}
+
+/**
+ * Atomically claim a (thread, message) before sending, so two overlapping cron
+ * runs can't both reply to the same message. Returns true if WE claimed it.
+ * The conditional UPDATE only fires when the stored last_message_id differs
+ * (new message) or a prior 'sending' claim went stale (>10 min, crash recovery).
+ */
+async function claimSend(threadId: string, lastMessageId: string): Promise<boolean> {
+  const res = await db.execute(sql`
+    INSERT INTO processed_threads (thread_id, last_message_id, action, created_at, updated_at)
+    VALUES (${threadId}, ${lastMessageId}, 'sending', now(), now())
+    ON CONFLICT (thread_id) DO UPDATE
+      SET last_message_id = excluded.last_message_id, action = 'sending', updated_at = now()
+      WHERE processed_threads.last_message_id IS DISTINCT FROM excluded.last_message_id
+         OR (processed_threads.action = 'sending' AND processed_threads.updated_at < now() - interval '10 minutes')
+    RETURNING thread_id
+  `);
+  return res.rows.length > 0;
+}
+
+/** Release a claim (delete the row) so a failed send retries on the next run. */
+async function releaseThread(threadId: string): Promise<void> {
+  await db.delete(processedThreads).where(eq(processedThreads.threadId, threadId));
 }
 
 async function recordProcessed(
