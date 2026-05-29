@@ -235,6 +235,10 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   const outcomes: ThreadOutcome[] = [];
   let acted = 0;
 
+  const ts = () => new Date().toISOString();
+  const log = (m: string) => console.log(`[lead-replies ${ts()}] ${m}`);
+  log(`start dry=${dryRun} max=${max} query="${query}" scanned=${threadIds.length}`);
+
   // Labels are created lazily and only when we actually need them (not in dry-run).
   const labelCache: Record<string, string> = {};
   const label = async (name: string) => (labelCache[name] ??= await ensureLabel(name));
@@ -377,6 +381,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
             reason: `code mint failed: ${minted.error}`,
             replyPreview: body.slice(0, 400),
           });
+          log(`MINT-FAILED "${channelName}" <${leadEmail}>: ${minted.error} -> escalate`);
           await addThreadLabels(threadId, [await labelRevisar()]);
           await recordProcessed(threadId, leadEmail, channelName, alias, "escalate", null, last.id, `mint failed: ${minted.error}`, body || null);
           continue;
@@ -426,6 +431,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     const sent = await sendReply(replyParams);
 
     if (!sent.ok) {
+      log(`SEND-FAILED "${channelName}" <${leadEmail}>: ${sent.error}`);
       outcomes.push({
         ...baseOutcome,
         alias,
@@ -445,6 +451,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       console.error("[lead-replies] Sent mirror failed for", threadId, e);
     }
 
+    log(`SENT "${channelName}" <${leadEmail}> from ${alias} code=${code ?? "none"}`);
     await addThreadLabels(threadId, [await labelRespondido()]);
     await recordProcessed(threadId, leadEmail, channelName, alias, "sent", code ?? null, last.id, decision.reason, body);
     outcomes.push({
@@ -455,6 +462,15 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       replyPreview: body,
       code,
     });
+  }
+
+  // Per-run summary in the logs: counts + one line per outcome.
+  const counts: Record<string, number> = {};
+  for (const o of outcomes) counts[o.action] = (counts[o.action] ?? 0) + 1;
+  log(`done: ${JSON.stringify(counts)}`);
+  for (const o of outcomes) {
+    const tail = o.code ? `code=${o.code}` : o.error ? `err=${o.error}` : (o.reason ?? "").slice(0, 80);
+    log(`  ${o.action.toUpperCase()} "${o.channelName}" <${o.leadEmail}> ${o.alias ?? ""} ${tail}`);
   }
 
   return {

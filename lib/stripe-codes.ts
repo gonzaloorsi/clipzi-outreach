@@ -76,10 +76,35 @@ export async function createTrialPromotionCode(
       code?: string;
       error?: { message?: string };
     };
-    if (!res.ok || !json.code) {
-      return { ok: false, error: json.error?.message ?? `Stripe ${res.status}` };
+    if (res.ok && json.code) {
+      return { ok: true, code: json.code, id: json.id };
     }
-    return { ok: true, code: json.code, id: json.id };
+    // Codes are deterministic per thread, so a retry hits "already exists".
+    // That existing code is valid (same coupon) — reuse it instead of failing.
+    if (/already exists/i.test(json.error?.message ?? "")) {
+      const existing = await getPromotionCode(code);
+      if (existing.ok) return existing;
+    }
+    return { ok: false, error: json.error?.message ?? `Stripe ${res.status}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Look up an existing promotion code by its human-readable code string. */
+export async function getPromotionCode(code: string): Promise<PromotionCodeResult> {
+  if (!process.env.STRIPE_SECRET_KEY) return { ok: false, error: "STRIPE_SECRET_KEY not set" };
+  try {
+    const res = await fetch(`${STRIPE_API}/promotion_codes?code=${encodeURIComponent(code)}&limit=1`, {
+      headers: {
+        Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+        "Stripe-Version": "2024-06-20",
+      },
+    });
+    const json = (await res.json()) as { data?: Array<{ id: string; code: string }> };
+    const p = json.data?.[0];
+    if (!p) return { ok: false, error: "promotion code not found" };
+    return { ok: true, code: p.code, id: p.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
