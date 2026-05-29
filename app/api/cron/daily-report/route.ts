@@ -115,23 +115,27 @@ export async function GET(req: NextRequest) {
       code: string | null;
       action: string;
       reply_body: string | null;
+      reason: string | null;
       created_at: string | null;
     }>(sql`
-      SELECT channel_name, lead_email, alias, code, action, reply_body, created_at
+      SELECT channel_name, lead_email, alias, code, action, reply_body, reason, created_at
       FROM processed_threads
       WHERE created_at > NOW() - INTERVAL '1 hour' * ${windowHours}
-        AND action IN ('sent', 'escalate')
+        AND action IN ('sent', 'escalate', 'skip', 'automated')
       ORDER BY created_at DESC
     `);
-    const aiReplies = (aiRes.rows ?? aiRes).map((r) => ({
+    const allProcessed = (aiRes.rows ?? aiRes).map((r) => ({
       channelName: r.channel_name || r.lead_email || "(unknown)",
       leadEmail: r.lead_email ?? "",
       alias: r.alias ?? null,
       code: r.code ?? null,
       action: r.action,
       replyBody: r.reply_body ?? null,
+      reason: r.reason ?? null,
       createdAt: r.created_at ?? null,
     }));
+    const aiReplies = allProcessed.filter((r) => r.action === "sent" || r.action === "escalate");
+    const noReplies = allProcessed.filter((r) => r.action === "skip" || r.action === "automated");
 
     log(`window=${windowHours}h sent=${sent} failed=${failed} aiReplies=${aiReplies.length} dry=${dryRun}`);
 
@@ -150,6 +154,7 @@ export async function GET(req: NextRequest) {
         },
         rows: rows.slice(0, 20),
         aiReplies,
+        noReplies,
       });
     }
 
@@ -164,6 +169,7 @@ export async function GET(req: NextRequest) {
       },
       senderStats,
       aiReplies,
+      noReplies,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
     });
 

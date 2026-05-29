@@ -33,10 +33,12 @@ export async function GET(req: NextRequest) {
   const dryRun = url.searchParams.get("dry") === "1";
   const max = Number(url.searchParams.get("max")) || undefined;
   const sinceDays = Number(url.searchParams.get("sinceDays")) || undefined;
+  const scanCap = Number(url.searchParams.get("scanCap")) || undefined;
+  const after = url.searchParams.get("after") || undefined;
   const onlyThreadId = url.searchParams.get("threadId") || undefined;
 
   try {
-    const summary = await runLeadReplies({ dryRun, max, sinceDays, onlyThreadId });
+    const summary = await runLeadReplies({ dryRun, max, sinceDays, scanCap, after, onlyThreadId });
     return NextResponse.json(summary);
   } catch (e) {
     console.error("[lead-replies] failed:", e);

@@ -202,7 +202,8 @@ async function callLLM(ctx: ThreadContext): Promise<Decision> {
 export interface RunOptions {
   dryRun?: boolean;
   max?: number; // max threads to ACT on this run
-  sinceDays?: number; // how far back to scan
+  sinceDays?: number; // how far back to scan (ignored if `after` is set)
+  after?: string; // Gmail date "YYYY/MM/DD" — scan threads after this date
   scanCap?: number; // max threads to fetch/inspect
   onlyThreadId?: string; // act on a single specific thread (manual one-off sends)
 }
@@ -213,7 +214,9 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   const sinceDays = opts.sinceDays ?? 14;
   const scanCap = opts.scanCap ?? 120;
 
-  const query = `${OUTREACH_QUERY} newer_than:${sinceDays}d`;
+  // Prefer an explicit `after:` date (e.g. backlog since April 1) over newer_than.
+  const window = opts.after ? `after:${opts.after.replace(/-/g, "/")}` : `newer_than:${sinceDays}d`;
+  const query = `${OUTREACH_QUERY} ${window}`;
   const threadIds = opts.onlyThreadId
     ? [opts.onlyThreadId]
     : await retry(() => searchThreadIds(query, scanCap));
@@ -233,11 +236,12 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   let acted = 0;
 
   // Labels are created lazily and only when we actually need them (not in dry-run).
-  let respondidoId: string | null = null;
-  let revisarId: string | null = null;
-  const labelRespondido = async () =>
-    (respondidoId ??= await ensureLabel("Clipzi/Respondido"));
-  const labelRevisar = async () => (revisarId ??= await ensureLabel("Clipzi/Revisar"));
+  const labelCache: Record<string, string> = {};
+  const label = async (name: string) => (labelCache[name] ??= await ensureLabel(name));
+  const labelRespondido = () => label("Clipzi/Respondido");
+  const labelRevisar = () => label("Clipzi/Revisar");
+  const labelSinRespuesta = () => label("Clipzi/Sin-respuesta");
+  const labelAutomatico = () => label("Clipzi/Automatico");
 
   for (const threadId of threadIds) {
     if (acted >= max) break;
@@ -284,6 +288,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     if (isAutomated(last)) {
       outcomes.push({ ...baseOutcome, action: "automated", reason: "automated/system reply" });
       if (!dryRun) {
+        await addThreadLabels(threadId, [await labelAutomatico()]);
         await recordProcessed(threadId, leadEmail, channelName, null, "automated", null, last.id, "automated");
       }
       continue;
@@ -331,6 +336,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     if (action === "skip") {
       outcomes.push({ ...baseOutcome, alias, action: "skip", reason: decision.reason });
       if (!dryRun) {
+        await addThreadLabels(threadId, [await labelSinRespuesta()]);
         await recordProcessed(threadId, leadEmail, channelName, alias, "skip", null, last.id, decision.reason);
       }
       continue;

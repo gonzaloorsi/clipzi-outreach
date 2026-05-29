@@ -61,8 +61,9 @@ export interface AiReplyRow {
   leadEmail: string;
   alias: string | null;
   code: string | null;
-  action: string; // 'sent' | 'escalate'
+  action: string; // 'sent' | 'escalate' | 'skip' | 'automated'
   replyBody: string | null;
+  reason?: string | null;
   createdAt: string | null;
 }
 
@@ -77,6 +78,7 @@ export interface DailyDigestInput {
   };
   senderStats: Array<{ email: string; sent24h: number; dailyLimit: number }>;
   aiReplies?: AiReplyRow[];
+  noReplies?: AiReplyRow[];
   version: string;
 }
 
@@ -223,6 +225,28 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
             .join("")}</tbody>
         </table>`;
 
+  // ── Threads the agent did NOT reply to (skip / automated), with the reason ──
+  const noReplies = input.noReplies ?? [];
+  const noRepliesBlock =
+    noReplies.length === 0
+      ? `<p style="color:#888;font-size:13px;">Nada para mostrar.</p>`
+      : `<table style="border-collapse:collapse;width:100%;font-size:13px;">
+          <thead><tr style="background:#f5f5f5;text-align:left;">
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Tipo</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Contacto</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Motivo</th>
+          </tr></thead>
+          <tbody>${noReplies
+            .map(
+              (r) => `<tr>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${r.action === "automated" ? "🤖 automático" : "⏭️ sin respuesta"}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(r.channelName)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#555;font-size:12px;">${escapeHtml((r.reason ?? "").slice(0, 160))}</td>
+              </tr>`,
+            )
+            .join("")}</tbody>
+        </table>`;
+
   return `<div style="font-family:system-ui,-apple-system,sans-serif;color:#222;max-width:900px;">
     <h2 style="margin:0 0 4px 0;">Resumen del día · ${escapeHtml(dateLabel)}</h2>
     <p style="margin:0 0 16px 0;color:#666;font-size:13px;">
@@ -261,6 +285,9 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
 
     <h3 style="margin:0 0 6px 0;font-size:14px;">Respuestas IA a leads (${input.windowHours}h)</h3>
     <div style="margin-bottom:18px;">${repliesBlock}</div>
+
+    <h3 style="margin:0 0 6px 0;font-size:14px;">No respondidos por la IA (${input.windowHours}h)</h3>
+    <div style="margin-bottom:18px;">${noRepliesBlock}</div>
 
     <h3 style="margin:0 0 6px 0;font-size:14px;">Fallos</h3>
     <div style="margin-bottom:18px;">${failuresBlock}</div>
