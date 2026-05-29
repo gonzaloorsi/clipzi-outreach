@@ -35,6 +35,9 @@ const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 const MODEL = process.env.LEAD_REPLY_MODEL || "anthropic/claude-sonnet-4.6";
 const FROM_NAME = process.env.SENDER_NAME || "Gonzalo Orsi";
 const OUTREACH_QUERY = 'subject:"x Clipzi"';
+// Only auto-send in languages we can quality-check. Anything else (Arabic,
+// Japanese, etc.) is held for manual review via Clipzi/Revisar.
+const AUTO_SEND_LANGS = new Set(["es", "en", "pt", "fr", "de", "it"]);
 
 const ALIAS_RE = /[a-z0-9._%+-]+@clipzi\.[a-z.]+/gi;
 const OWN_FROM_RE = /@clipzi\.[a-z.]+|g@sausito\.com|g@babadesk\.com/i;
@@ -293,9 +296,18 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
 
     acted += 1;
 
-    // No alias means we cannot safely choose the From address -> force review.
+    // Hold for manual review if: no alias (can't choose From), or the reply is
+    // in a language we don't auto-send (can't quality-check it).
     const forceReview = !alias && decision.action === "send";
-    const action: Action = forceReview ? "escalate" : decision.action;
+    const langHold =
+      decision.action === "send" &&
+      !AUTO_SEND_LANGS.has((decision.language || "").toLowerCase().slice(0, 2));
+    const action: Action = forceReview || langHold ? "escalate" : decision.action;
+    const escalateReason = forceReview
+      ? "could not determine reply alias"
+      : langHold
+        ? `language '${decision.language}' held for manual review`
+        : decision.reason;
 
     if (action === "skip") {
       outcomes.push({ ...baseOutcome, alias, action: "skip", reason: decision.reason });
@@ -310,12 +322,12 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
         ...baseOutcome,
         alias,
         action: "escalate",
-        reason: forceReview ? "could not determine reply alias" : decision.reason,
+        reason: escalateReason,
         replyPreview: decision.reply_body.slice(0, 400),
       });
       if (!dryRun) {
         await addThreadLabels(threadId, [await labelRevisar()]);
-        await recordProcessed(threadId, leadEmail, channelName, alias, "escalate", null, last.id, forceReview ? "could not determine reply alias" : decision.reason, decision.reply_body || null);
+        await recordProcessed(threadId, leadEmail, channelName, alias, "escalate", null, last.id, escalateReason, decision.reply_body || null);
       }
       continue;
     }
