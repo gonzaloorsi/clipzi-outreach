@@ -315,8 +315,10 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       );
       if (messages.length === 0) continue;
       const last = messages[messages.length - 1];
-      if (isOutbound(last)) continue; // Gonza already replied last
-      if (handled.get(threadId) === last.id) continue; // already drafted this message
+      if (isOutbound(last)) continue; // Gonza already replied last, nothing new to answer
+      // NOTE: no handled-check here. Gonza tagging Clipzi/Responder is an explicit
+      // request that overrides idempotency — even if the thread was auto-escalated
+      // or skipped before. Removing the Responder label after drafting prevents repeats.
       const subject = header(messages[0], "Subject");
       const channelName = channelFromSubject(subject);
       const { name: leadName, email: leadEmail } = parseFrom(header(last, "From"));
