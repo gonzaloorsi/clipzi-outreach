@@ -58,21 +58,6 @@ function reSubject(subject: string): string {
   return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
 }
 
-/** Convert a plain-text body to minimal HTML (paragraphs), preserving line breaks. */
-function textToHtml(text: string): string {
-  return text
-    .split(/\n{2,}/)
-    .map(
-      (p) =>
-        `<p>${p
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\n/g, "<br/>")}</p>`,
-    )
-    .join("\n");
-}
-
 export async function sendReply(params: SendReplyParams): Promise<SendReplyResult> {
   const subject = reSubject(params.subject);
   const rfc822MessageId = genMessageId(params.fromAlias);
@@ -91,7 +76,6 @@ export async function sendReply(params: SendReplyParams): Promise<SendReplyResul
       replyTo: REPLY_TO,
       subject,
       text: params.bodyText,
-      html: textToHtml(params.bodyText),
       headers,
     });
     if (error) return { ok: false, error: error.message ?? JSON.stringify(error) };
@@ -102,12 +86,11 @@ export async function sendReply(params: SendReplyParams): Promise<SendReplyResul
 }
 
 /**
- * Build the RFC822 MIME of the reply, identical to what Resend sent, so we can
- * mirror a copy into Gmail's Sent folder (lib/gmail.ts insertToSent). Reuses the
- * same Message-ID so the Sent copy and the delivered mail are the same message.
+ * Build the plain-text RFC822 MIME of the reply, identical to what Resend sent,
+ * so we can mirror a copy into Gmail's Sent folder (lib/gmail.ts insertToSent).
+ * Reuses the same Message-ID so the Sent copy and the delivered mail match.
  */
 export function buildRfc822(params: SendReplyParams, rfc822MessageId: string): string {
-  const boundary = "b_" + Math.random().toString(36).slice(2);
   const refs = [params.references, params.inReplyToMessageId].filter(Boolean).join(" ");
   const headers = [
     `From: ${params.fromName} <${params.fromAlias}>`,
@@ -119,21 +102,10 @@ export function buildRfc822(params: SendReplyParams, rfc822MessageId: string): s
     params.inReplyToMessageId ? `In-Reply-To: ${params.inReplyToMessageId}` : null,
     refs ? `References: ${refs}` : null,
     "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    `Content-Type: text/plain; charset="UTF-8"`,
+    "Content-Transfer-Encoding: 8bit",
   ].filter(Boolean);
-  return (
-    headers.join("\r\n") +
-    "\r\n\r\n" +
-    `--${boundary}\r\n` +
-    `Content-Type: text/plain; charset="UTF-8"\r\n` +
-    "Content-Transfer-Encoding: 8bit\r\n\r\n" +
-    params.bodyText +
-    "\r\n\r\n" +
-    `--${boundary}\r\n` +
-    `Content-Type: text/html; charset="UTF-8"\r\n` +
-    "Content-Transfer-Encoding: 8bit\r\n\r\n" +
-    textToHtml(params.bodyText) +
-    "\r\n\r\n" +
-    `--${boundary}--\r\n`
-  );
+  // RFC822 wants CRLF line endings in the body.
+  const body = params.bodyText.replace(/\r?\n/g, "\r\n");
+  return headers.join("\r\n") + "\r\n\r\n" + body + "\r\n";
 }
