@@ -9,7 +9,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-const BASE = process.env.PROD_URL ?? "https://clipzi-outreach.vercel.app";
+const BASE = process.env.PROD_URL ?? "https://clipzi-or.vercel.app";
 const SECRET = process.env.CRON_SECRET;
 if (!SECRET) {
   console.error("CRON_SECRET not set in .env.local");
@@ -36,15 +36,41 @@ const SEEDS = [
 
 // One unique channelName per sender → one unique subject per sender.
 // All use creator-es (most representative of real outreach traffic).
+// FIXED, reusable map: each sender always tests with the SAME subject, so
+// results stay comparable across runs. Add new senders here; never reshuffle
+// the existing ones.
 const ASSIGNMENT = [
-  { from: "g@clipzi.video",  channelName: "Migue Granados" },
-  { from: "g@clipzi.media",  channelName: "Olga" },
-  { from: "g@clipzi.pro",    channelName: "Luzu" },
-  { from: "g@clipzi.team",   channelName: "Vorterix" },
-  { from: "g@clipzi.net",    channelName: "Gelatina" },
-  { from: "g@clipzi.co",     channelName: "Blender" },
-  { from: "g@clipzi.tech",   channelName: "Casimiro" },
-  { from: "g@clipzi.agency", channelName: "Bondi Live" },
+  { from: "g@clipzi.video",     channelName: "Migue Granados" },
+  { from: "g@clipzi.media",     channelName: "Olga" },
+  { from: "g@clipzi.pro",       channelName: "Luzu" },
+  { from: "g@clipzi.team",      channelName: "Vorterix" },
+  { from: "g@clipzi.net",       channelName: "Gelatina" },
+  { from: "g@clipzi.co",        channelName: "Blender" },
+  { from: "g@clipzi.tech",      channelName: "Casimiro" },
+  { from: "g@clipzi.agency",    channelName: "Bondi Live" },
+  { from: "g@clipzi.sh",        channelName: "Sería Increíble" },
+  { from: "g@clipzi.design",    channelName: "Nadie Dice Nada" },
+  { from: "g@clipzi.digital",   channelName: "Paren La Mano" },
+  { from: "g@clipzi.engineer",  channelName: "La Cruda" },
+  { from: "g@clipzi.info",      channelName: "Industria Nacional" },
+  { from: "g@clipzi.lat",       channelName: "Patria y Familia" },
+  { from: "g@clipzi.live",      channelName: "Tapados de Laburo" },
+  { from: "g@clipzi.one",       channelName: "Ferné con Grego" },
+  { from: "g@clipzi.online",    channelName: "Soñé Que Volaba" },
+  { from: "g@clipzi.page",      channelName: "Cómo se Hace" },
+  { from: "g@tryclipzi.com",    channelName: "El After" },
+  { from: "g@clipzi.run",       channelName: "Antes Que Nadie" },
+  { from: "g@tryclipzi.app",    channelName: "La Casa Streaming" },
+  { from: "g@tryclipzi.dev",    channelName: "Se Fue Larga" },
+  { from: "g@getclipzi.app",    channelName: "Modo Plus" },
+  { from: "g@getclipzi.com",    channelName: "Resumido" },
+  { from: "g@getclipzi.dev",    channelName: "Rumis" },
+  { from: "g@useclipzi.app",    channelName: "Hablemos de Otra Cosa" },
+  { from: "g@useclipzi.com",    channelName: "Mañana es Mejor" },
+  { from: "g@useclipzi.dev",    channelName: "Buen Finde" },
+  { from: "g@helloclipzi.app",  channelName: "Generación Dorada" },
+  { from: "g@helloclipzi.com",  channelName: "Mundo Streaming" },
+  { from: "g@helloclipzi.dev",  channelName: "Plan Maestro" },
 ];
 
 const onlyFlag = process.argv.find((a) => a.startsWith("--only="));

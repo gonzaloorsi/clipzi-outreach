@@ -10,7 +10,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-const BASE = process.env.PROD_URL ?? "https://clipzi-outreach.vercel.app";
+const BASE = process.env.PROD_URL ?? "https://clipzi-or.vercel.app";
 const SECRET = process.env.CRON_SECRET;
 if (!SECRET) {
   console.error("CRON_SECRET not set in .env.local");
