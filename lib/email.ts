@@ -104,11 +104,11 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   const subject = params.lowercaseSubject ? rawSubject.toLowerCase() : rawSubject;
   const from = `${params.fromName} <${params.fromEmail}>`;
   const to = [params.to];
-  // Resend's CreateEmailOptions is a discriminated union — branch on which
-  // body field we want. textOnly path skips HTML multipart entirely; common
-  // spam-test recommendation for isolating content vs format-related triggers.
-  // Apply noLink stripping AFTER converting / before sending, in whichever path
-  let bodyText = params.textOnly ? htmlToPlainText(html) : html;
+  // Outreach goes out as plain text (not HTML): reads as a personal 1:1 mail
+  // and tends to land in Primary instead of Promotions. The copy is unchanged
+  // (htmlToPlainText preserves the words + paragraph breaks; "clipzi.app" stays
+  // as text and Gmail auto-links it).
+  let bodyText = htmlToPlainText(html);
   if (params.noLink) bodyText = stripLinks(bodyText);
   // linkDomain: swap "clipzi.app" for the given domain (e.g. "clipzi.net") so
   // we can A/B test if the specific domain reference is what trips spam filters.
@@ -117,19 +117,12 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     bodyText = bodyText.replace(/clipzi\.app/g, domain);
   }
   try {
-    const { data, error } = params.textOnly
-      ? await client().emails.send({
-          from,
-          to,
-          subject,
-          text: bodyText,
-        })
-      : await client().emails.send({
-          from,
-          to,
-          subject,
-          html: bodyText,
-        });
+    const { data, error } = await client().emails.send({
+      from,
+      to,
+      subject,
+      text: bodyText,
+    });
     if (error) {
       return {
         ok: false,
