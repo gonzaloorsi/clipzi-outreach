@@ -1,9 +1,9 @@
 # Senders configurados (SENDER_EMAIL_n)
 
 > Snapshot. Fuente viva: `GET https://clipzi-or.vercel.app/api/debug/senders` (header `x-cron-secret`).
-> Generado: 2026-05-30T19:55:28.524Z
+> Generado: 2026-05-30T20:03:01.969Z
 
-**Total:** 30 slots · 30 únicos cargados · 0 vacíos · 0 duplicados
+**Total:** 31 slots · 31 únicos cargados · 0 vacíos · 0 duplicados
 
 | Variable | Email |
 |---|---|
@@ -36,7 +36,6 @@
 | `SENDER_EMAIL_27` | g@useclipzi.com |
 | `SENDER_EMAIL_28` | g@useclipzi.dev |
 | `SENDER_EMAIL_29` | g@helloclipzi.app |
+| `SENDER_EMAIL_30` | g@helloclipzi.com |
 | `SENDER_EMAIL_31` | g@helloclipzi.dev |
-
-
 
