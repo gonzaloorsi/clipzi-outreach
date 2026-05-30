@@ -58,8 +58,11 @@ const LABEL_COLORS: Record<string, { backgroundColor: string; textColor: string 
   "Clipzi/Borrador": { backgroundColor: "#ffad47", textColor: "#ffffff" }, // amber (draft ready to review)
 };
 
-const ALIAS_RE = /[a-z0-9._%+-]+@clipzi\.[a-z.]+/gi;
-const OWN_FROM_RE = /@clipzi\.[a-z.]+|g@sausito\.com|g@babadesk\.com/i;
+// Match any of our sender domains: clipzi.*, tryclipzi.*, getclipzi.*, and any
+// future "clipzi"-containing variant (clipziapp, etc.). A lead whose own domain
+// contains "clipzi" is essentially impossible, so this is safe.
+const ALIAS_RE = /[a-z0-9._%+-]+@[a-z0-9-]*clipzi[a-z0-9-]*\.[a-z.]+/gi;
+const OWN_FROM_RE = /@[a-z0-9-]*clipzi[a-z0-9-]*\.[a-z.]+|g@sausito\.com|g@babadesk\.com/i;
 
 // ─── Decision shape returned by the LLM ──────────────────────────────────────
 
