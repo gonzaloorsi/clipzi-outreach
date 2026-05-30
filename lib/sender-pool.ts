@@ -23,13 +23,14 @@ export interface PickedSender {
 }
 
 /**
- * Read SENDER_EMAIL (legacy, no suffix) and SENDER_EMAIL_1..20 from env.
- * Numbered form is preferred (consistent with YOUTUBE_API_KEY_1..10).
+ * Read SENDER_EMAIL (legacy, no suffix) plus every SENDER_EMAIL_<n> from env,
+ * with NO fixed cap — scans all matching keys so adding senders past 20 in
+ * Vercel just works. Numbered form is preferred.
  */
 export function loadSenderEmails(): string[] {
-  const candidates = [process.env.SENDER_EMAIL];
-  for (let i = 1; i <= 20; i++) {
-    candidates.push(process.env[`SENDER_EMAIL_${i}`]);
+  const candidates: (string | undefined)[] = [process.env.SENDER_EMAIL];
+  for (const [key, value] of Object.entries(process.env)) {
+    if (/^SENDER_EMAIL_\d+$/.test(key)) candidates.push(value);
   }
   const present = candidates.filter((e): e is string => Boolean(e?.trim())).map((e) => e.trim().toLowerCase());
   return [...new Set(present)];
