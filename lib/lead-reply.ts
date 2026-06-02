@@ -56,6 +56,7 @@ const LABEL_COLORS: Record<string, { backgroundColor: string; textColor: string 
   "Clipzi/Automatico": { backgroundColor: "#a4c2f4", textColor: "#000000" }, // light blue
   "Clipzi/Responder": { backgroundColor: "#a479e2", textColor: "#ffffff" }, // purple (you tag it)
   "Clipzi/Borrador": { backgroundColor: "#ffad47", textColor: "#ffffff" }, // amber (draft ready to review)
+  "Clipzi/No-responder": { backgroundColor: "#000000", textColor: "#ffffff" }, // black (you tag it — hands off, you handle it)
 };
 
 // Match any of our sender domains: clipzi.*, tryclipzi.*, getclipzi.*, and any
@@ -294,10 +295,27 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
   const labelSinRespuesta = () => label("Clipzi/Sin-respuesta");
   const labelAutomatico = () => label("Clipzi/Automatico");
 
+  // Threads Gonza tagged "Clipzi/No-responder" are left entirely to him: the
+  // agent never reads, answers, drafts, or escalates them. Populated once below
+  // (only on a full scan — an explicit ?threadId= run is a deliberate override).
+  const manualSkip = new Set<string>();
+
   // ── Presence pass: threads Gonza tagged "Clipzi/Responder" get a warm,
   //    relationship-first DRAFT (not auto-sent) for him to review and send.
   //    Calling label() here also ensures the label exists so he can apply it.
   if (!opts.onlyThreadId) {
+    // Hands-off scan. Ensuring the label here also makes it available in Gmail
+    // for him to apply. A thread tagged both No-responder and Responder is
+    // hands-off (the skip below wins in both loops).
+    const noResponderId = await label("Clipzi/No-responder");
+    try {
+      const skipIds = await retry(() => searchThreadIdsByLabel(noResponderId, 200));
+      for (const id of skipIds) manualSkip.add(id);
+      log(`hands-off (No-responder): ${skipIds.length}`);
+    } catch (e) {
+      log(`hands-off scan failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     const responderId = await label("Clipzi/Responder");
     let presenceIds: string[] = [];
     try {
@@ -307,6 +325,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     }
     log(`presence tagged: ${presenceIds.length}`);
     for (const threadId of presenceIds) {
+      if (manualSkip.has(threadId)) continue; // hands-off wins over Responder
       let thread: GmailThread;
       try {
         thread = await getThread(threadId);
@@ -380,6 +399,11 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
 
   for (const threadId of threadIds) {
     if (acted >= max) break;
+
+    // Hands-off: Gonza tagged this thread "Clipzi/No-responder" — leave it to
+    // him. No read, no LLM, no reply/draft/escalate. The tag persists across
+    // runs, so even a new lead message on the thread stays untouched.
+    if (manualSkip.has(threadId)) continue;
 
     let thread: GmailThread;
     try {
