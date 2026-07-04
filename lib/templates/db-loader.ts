@@ -33,6 +33,18 @@ import { build as standupOrgPt } from "./standup-org-pt";
 import { build as mediaOrgEn } from "./media-org-en";
 import { build as mediaOrgEs } from "./media-org-es";
 import { build as mediaOrgPt } from "./media-org-pt";
+import { build as journalistIndividualEn } from "./journalist-individual-en";
+import { build as journalistIndividualEs } from "./journalist-individual-es";
+import { build as journalistIndividualPt } from "./journalist-individual-pt";
+import { build as journalistOrgEn } from "./journalist-org-en";
+import { build as journalistOrgEs } from "./journalist-org-es";
+import { build as journalistOrgPt } from "./journalist-org-pt";
+import { build as photographerIndividualEn } from "./photographer-individual-en";
+import { build as photographerIndividualEs } from "./photographer-individual-es";
+import { build as photographerIndividualPt } from "./photographer-individual-pt";
+import { build as photographerOrgEn } from "./photographer-org-en";
+import { build as photographerOrgEs } from "./photographer-org-es";
+import { build as photographerOrgPt } from "./photographer-org-pt";
 
 const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "creator-en": creatorEn,
@@ -52,6 +64,18 @@ const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "media-org-en": mediaOrgEn,
   "media-org-es": mediaOrgEs,
   "media-org-pt": mediaOrgPt,
+  "journalist-individual-en": journalistIndividualEn,
+  "journalist-individual-es": journalistIndividualEs,
+  "journalist-individual-pt": journalistIndividualPt,
+  "journalist-org-en": journalistOrgEn,
+  "journalist-org-es": journalistOrgEs,
+  "journalist-org-pt": journalistOrgPt,
+  "photographer-individual-en": photographerIndividualEn,
+  "photographer-individual-es": photographerIndividualEs,
+  "photographer-individual-pt": photographerIndividualPt,
+  "photographer-org-en": photographerOrgEn,
+  "photographer-org-es": photographerOrgEs,
+  "photographer-org-pt": photographerOrgPt,
 };
 
 export interface TemplateRow {

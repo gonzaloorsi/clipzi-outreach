@@ -167,11 +167,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Four-way split: creators / agencies / standup / media-org.
-    // AGENCY_SEND_RATIO default 20, STANDUP_SEND_RATIO default 10,
-    // MEDIA_ORG_SEND_RATIO default 10, creators = remainder.
+    // Six-way split: creators / agencies / standup / media-org / journalist /
+    // photographer. AGENCY_SEND_RATIO default 20, STANDUP_SEND_RATIO default 10,
+    // MEDIA_ORG_SEND_RATIO default 10, JOURNALIST_SEND_RATIO default 10,
+    // PHOTOGRAPHER_SEND_RATIO default 10, creators = remainder.
     // Ratios clamped 0-100 each. If their sum exceeds 100 we proportionally
-    // scale the three slot ratios so creators get at least 0.
+    // scale the slot ratios so creators get at least 0.
     const agencyPctRaw = Math.max(
       0,
       Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")),
@@ -184,25 +185,47 @@ export async function GET(req: NextRequest) {
       0,
       Math.min(100, Number(process.env.MEDIA_ORG_SEND_RATIO ?? "10")),
     );
+    const journalistPctRaw = Math.max(
+      0,
+      Math.min(100, Number(process.env.JOURNALIST_SEND_RATIO ?? "10")),
+    );
+    const photographerPctRaw = Math.max(
+      0,
+      Math.min(100, Number(process.env.PHOTOGRAPHER_SEND_RATIO ?? "10")),
+    );
     let agencyPct = agencyPctRaw;
     let standupPct = standupPctRaw;
     let mediaOrgPct = mediaOrgPctRaw;
-    const sumPct = agencyPct + standupPct + mediaOrgPct;
+    let journalistPct = journalistPctRaw;
+    let photographerPct = photographerPctRaw;
+    const sumPct =
+      agencyPct + standupPct + mediaOrgPct + journalistPct + photographerPct;
     if (sumPct > 100) {
       const scale = 100 / sumPct;
       agencyPct *= scale;
       standupPct *= scale;
       mediaOrgPct *= scale;
+      journalistPct *= scale;
+      photographerPct *= scale;
     }
     const agencyRatio = agencyPct / 100;
     const standupRatio = standupPct / 100;
     const mediaOrgRatio = mediaOrgPct / 100;
+    const journalistRatio = journalistPct / 100;
+    const photographerRatio = photographerPct / 100;
     const agencyTarget = Math.round(max * agencyRatio);
     const standupTarget = Math.round(max * standupRatio);
     const mediaOrgTarget = Math.round(max * mediaOrgRatio);
+    const journalistTarget = Math.round(max * journalistRatio);
+    const photographerTarget = Math.round(max * photographerRatio);
     const creatorTarget = Math.max(
       0,
-      max - agencyTarget - standupTarget - mediaOrgTarget,
+      max -
+        agencyTarget -
+        standupTarget -
+        mediaOrgTarget -
+        journalistTarget -
+        photographerTarget,
     );
 
     const isAgencyExpr = sql`(
@@ -217,9 +240,17 @@ export async function GET(req: NextRequest) {
     const isMediaOrgExpr = sql`(
       COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:media-org:%'
     )`;
+    const isJournalistExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:journalist-individual:%'
+      OR COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:journalist-org:%'
+    )`;
+    const isPhotographerExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:photographer-individual:%'
+      OR COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:photographer-org:%'
+    )`;
     // Creator = none of the named verticals. Required because "NOT agency"
-    // alone would sweep standup/media-org rows into the creator pool.
-    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr})`;
+    // alone would sweep the other vertical rows into the creator pool.
+    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr} AND NOT ${isJournalistExpr} AND NOT ${isPhotographerExpr})`;
 
     const selectFields = {
       id: channels.id,
@@ -233,7 +264,14 @@ export async function GET(req: NextRequest) {
       discoveredVia: channels.discoveredVia,
     };
 
-    const [creatorPool, agencyPool, standupPool, mediaOrgPool] = await Promise.all([
+    const [
+      creatorPool,
+      agencyPool,
+      standupPool,
+      mediaOrgPool,
+      journalistPool,
+      photographerPool,
+    ] = await Promise.all([
       creatorTarget > 0
         ? db
             .select(selectFields)
@@ -266,10 +304,34 @@ export async function GET(req: NextRequest) {
             .orderBy(desc(channels.score))
             .limit(mediaOrgTarget)
         : Promise.resolve([]),
+      journalistTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isJournalistExpr))
+            .orderBy(desc(channels.score))
+            .limit(journalistTarget)
+        : Promise.resolve([]),
+      photographerTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isPhotographerExpr))
+            .orderBy(desc(channels.score))
+            .limit(photographerTarget)
+        : Promise.resolve([]),
     ]);
 
-    // Concat order: B2B verticals first (agency, standup, media-org), creators last.
-    let candidates = [...agencyPool, ...standupPool, ...mediaOrgPool, ...creatorPool];
+    // Concat order: B2B verticals first (agency, standup, media-org, journalist,
+    // photographer), creators last.
+    let candidates = [
+      ...agencyPool,
+      ...standupPool,
+      ...mediaOrgPool,
+      ...journalistPool,
+      ...photographerPool,
+      ...creatorPool,
+    ];
 
     // Backfill: any deficit is filled from the broader pool (any kind not yet picked).
     const shortage = max - candidates.length;
@@ -288,7 +350,7 @@ export async function GET(req: NextRequest) {
     }
 
     log(
-      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length)} backfill)`,
+      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org + ${journalistTarget} journalist + ${photographerTarget} photographer; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}/${journalistPool.length}/${photographerPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length - journalistPool.length - photographerPool.length)} backfill)`,
     );
 
     if (candidates.length === 0) {
@@ -485,24 +547,32 @@ export async function GET(req: NextRequest) {
         agencyRatioPct: agencyRatio * 100,
         standupRatioPct: standupRatio * 100,
         mediaOrgRatioPct: mediaOrgRatio * 100,
+        journalistRatioPct: journalistRatio * 100,
+        photographerRatioPct: photographerRatio * 100,
         target: {
           creators: creatorTarget,
           agencies: agencyTarget,
           standup: standupTarget,
           mediaOrg: mediaOrgTarget,
+          journalist: journalistTarget,
+          photographer: photographerTarget,
         },
         actual: {
           creators: creatorPool.length,
           agencies: agencyPool.length,
           standup: standupPool.length,
           mediaOrg: mediaOrgPool.length,
+          journalist: journalistPool.length,
+          photographer: photographerPool.length,
           backfill: Math.max(
             0,
             candidates.length -
               creatorPool.length -
               agencyPool.length -
               standupPool.length -
-              mediaOrgPool.length,
+              mediaOrgPool.length -
+              journalistPool.length -
+              photographerPool.length,
           ),
         },
       },

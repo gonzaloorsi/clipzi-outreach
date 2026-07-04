@@ -43,6 +43,10 @@ const KIND_TO_DISCOVERED_VIA: Record<string, string> = {
   "standup-individual": "sonar:standup-individual:AR:comedian",
   "standup-org": "sonar:standup-org:AR:club",
   "media-org": "sonar:media-org:AR:streaming-tv",
+  "journalist-individual": "sonar:journalist-individual:AR:journalist",
+  "journalist-org": "sonar:journalist-org:AR:press-union",
+  "photographer-individual": "sonar:photographer-individual:AR:photographer",
+  "photographer-org": "sonar:photographer-org:AR:studio",
 };
 
 const VALID_LANGS = new Set(["es", "en", "pt", "de", "fr"]);

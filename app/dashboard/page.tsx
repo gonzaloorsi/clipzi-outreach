@@ -15,6 +15,10 @@ import {
   getLastStandupRun,
   getMediaOrgStats,
   getLastMediaOrgRun,
+  getJournalistStats,
+  getLastJournalistRun,
+  getPhotographerStats,
+  getLastPhotographerRun,
   getBouncerStats,
 } from "@/lib/insights";
 
@@ -199,7 +203,10 @@ export default async function DashboardPage() {
   const [
     kpis, pipeline, senders, win, runs, breakdown, heart,
     agencyStats, lastAgencyRun, standupStats, lastStandupRun,
-    mediaOrgStats, lastMediaOrgRun, bouncerStats,
+    mediaOrgStats, lastMediaOrgRun,
+    journalistStats, lastJournalistRun,
+    photographerStats, lastPhotographerRun,
+    bouncerStats,
   ] = await Promise.all([
     getKPIs(),
     getPipeline(),
@@ -214,6 +221,10 @@ export default async function DashboardPage() {
     getLastStandupRun(),
     getMediaOrgStats(),
     getLastMediaOrgRun(),
+    getJournalistStats(),
+    getLastJournalistRun(),
+    getPhotographerStats(),
+    getLastPhotographerRun(),
     getBouncerStats(),
   ]);
 
@@ -504,6 +515,26 @@ export default async function DashboardPage() {
         <StandupSection stats={standupStats} lastRun={lastStandupRun} />
 
         <MediaOrgSection stats={mediaOrgStats} lastRun={lastMediaOrgRun} />
+
+        <SonarFamilySection
+          title="Búsqueda de periodistas (individuales + prensa org)"
+          hint="Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar periodistas independientes con contenido en video (rotando 6 beats por día) y uniones, sindicatos, asociaciones de prensa, press clubs y escuelas de periodismo en 21 países."
+          entityLabel="Periodistas"
+          categoryLabels={JOURNALIST_CATEGORY_LABELS}
+          cronMinute={5}
+          stats={journalistStats}
+          lastRun={lastJournalistRun}
+        />
+
+        <SonarFamilySection
+          title="Búsqueda de fotógrafos (individuales + estudios/asociaciones)"
+          hint="Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar fotógrafos y videógrafos que filman video de bodas y eventos (rotando 6 especialidades por día) y estudios de foto/video y asociaciones de fotógrafos en 21 países."
+          entityLabel="Fotógrafos"
+          categoryLabels={PHOTOGRAPHER_CATEGORY_LABELS}
+          cronMinute={55}
+          stats={photographerStats}
+          lastRun={lastPhotographerRun}
+        />
 
         <BouncerSection stats={bouncerStats} />
 
@@ -1429,6 +1460,233 @@ function MediaOrgSection({
                   <tr key={row.category}>
                     <td style={{ padding: "4px 8px" }}>
                       {MEDIA_ORG_CATEGORY_LABELS[row.category] ?? row.category}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── SonarFamilySection (periodistas / fotógrafos) ─────────────────────
+// Sección genérica para los verticales Sonar que comparten la forma de
+// MediaOrgStats. Parametrizada por título, labels y minuto del cron cada 3h.
+
+const JOURNALIST_CATEGORY_LABELS: Record<string, string> = {
+  journalist: "Periodistas individuales",
+  "press-union": "Uniones/sindicatos de prensa",
+  "press-association": "Asociaciones de prensa",
+  "press-club": "Press clubs",
+  "journalism-school": "Escuelas de periodismo",
+};
+
+const PHOTOGRAPHER_CATEGORY_LABELS: Record<string, string> = {
+  photographer: "Fotógrafos individuales",
+  studio: "Estudios de foto/video",
+  association: "Asociaciones de fotógrafos",
+};
+
+function nextEvery3hRun(minute: number): { at: Date; inMinutes: number } {
+  // Cron `{minute} */3 * * *` → next xx:{minute} UTC where xx is a multiple of 3
+  const now = new Date();
+  const next = new Date(now);
+  const currentHour = now.getUTCHours();
+  const currentMinute = now.getUTCMinutes();
+  const onSlot = currentHour % 3 === 0 && currentMinute < minute;
+  const nextHour = onSlot
+    ? currentHour
+    : Math.ceil((currentHour + 1) / 3) * 3;
+  if (nextHour >= 24) {
+    next.setUTCDate(next.getUTCDate() + 1);
+    next.setUTCHours(0, minute, 0, 0);
+  } else {
+    next.setUTCHours(nextHour, minute, 0, 0);
+  }
+  const inMinutes = Math.floor((next.getTime() - now.getTime()) / 60000);
+  return { at: next, inMinutes };
+}
+
+function SonarFamilySection({
+  title,
+  hint,
+  entityLabel,
+  categoryLabels,
+  cronMinute,
+  stats,
+  lastRun,
+}: {
+  title: string;
+  hint: string;
+  entityLabel: string;
+  categoryLabels: Record<string, string>;
+  cronMinute: number;
+  stats: MediaOrgStats;
+  lastRun: DiscoveryRunRow | null;
+}) {
+  const next = nextEvery3hRun(cronMinute);
+
+  return (
+    <section style={s.section}>
+      <h2 style={s.h2}>{title}</h2>
+      <p style={s.hint}>{hint}</p>
+
+      <div style={{ ...s.card, marginBottom: 12 }}>
+        {!lastRun ? (
+          <div>
+            <span style={s.chip(c.muted)}>○ Sin corridas todavía</span>{" "}
+            <span style={{ fontSize: 13, color: c.dim }}>
+              Próxima: {next.at.toISOString().slice(11, 16)} UTC ({fmtDuration(next.inMinutes)} restantes)
+            </span>
+          </div>
+        ) : lastRun.error ? (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.err)}>✗ Última corrida falló</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: c.text }}>
+              Motivo: {shortError(lastRun.error)}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={s.chip(c.ok)}>● Funcionando</span>{" "}
+              <span style={{ fontSize: 13, color: c.dim }}>
+                última corrida {ago(lastRun.started_at)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Encontró <strong>{lastRun.channels_new.toLocaleString()}</strong>{" "}
+              entradas nuevas, todas entraron a la cartera.
+            </div>
+          </div>
+        )}
+        <div
+          style={{
+            fontSize: 11,
+            color: c.muted,
+            marginTop: 12,
+            paddingTop: 10,
+            borderTop: `1px solid ${c.border}`,
+          }}
+        >
+          Próxima corrida: {next.at.toISOString().slice(11, 16)} UTC ({fmtDuration(next.inMinutes)}) ·{" "}
+          <strong>{stats.totalEverDiscovered.toLocaleString()}</strong>{" "}
+          en la base · <strong>{stats.newLast7d}</strong> nuevas en 7d
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={s.card}>
+          <div style={{ ...s.num, color: c.accent }}>
+            {stats.totalQueued.toLocaleString()}
+          </div>
+          <div style={s.numLbl}>
+            {entityLabel} en cola
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              esperan turno en el cron horario
+            </div>
+          </div>
+        </div>
+        <div style={s.card}>
+          <div style={s.num}>{stats.totalSent.toLocaleString()}</div>
+          <div style={s.numLbl}>
+            {entityLabel} contactados
+            <div style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>
+              {stats.sentLast7d} en últimos 7 días
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por país (top 10) · cola / contactadas
+          </div>
+          {stats.byCountry.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCountry.map((row) => (
+                  <tr key={row.country}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {countryLabel(row.country)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.queued}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 8px",
+                        textAlign: "right",
+                        color: c.dim,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {row.sent}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div style={s.card}>
+          <div style={{ fontSize: 12, color: c.dim, marginBottom: 8 }}>
+            Por categoría · cola / contactadas
+          </div>
+          {stats.byCategory.length === 0 ? (
+            <em style={{ color: c.dim, fontSize: 12 }}>(sin datos aún)</em>
+          ) : (
+            <table style={{ ...s.table, fontSize: 12 }}>
+              <tbody>
+                {stats.byCategory.map((row) => (
+                  <tr key={row.category}>
+                    <td style={{ padding: "4px 8px" }}>
+                      {categoryLabels[row.category] ?? row.category}
                     </td>
                     <td
                       style={{

@@ -26,12 +26,24 @@
       "schedule": "45 */3 * * *"
     },
     {
+      "path": "/api/cron/journalist-discovery",
+      "schedule": "5 */3 * * *"
+    },
+    {
+      "path": "/api/cron/photographer-discovery",
+      "schedule": "55 */3 * * *"
+    },
+    {
       "path": "/api/cron/daily-report",
       "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/lead-replies?sinceDays=65&scanCap=300&max=20",
       "schedule": "17,47 * * * *"
+    },
+    {
+      "path": "/api/cron/welcome-replies?sinceDays=21&scanCap=200&max=20",
+      "schedule": "7,37 * * * *"
     }
   ],
   "functions": {
@@ -53,10 +65,19 @@
     "app/api/cron/media-org-discovery/route.ts": {
       "maxDuration": 800
     },
+    "app/api/cron/journalist-discovery/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/photographer-discovery/route.ts": {
+      "maxDuration": 800
+    },
     "app/api/cron/daily-report/route.ts": {
       "maxDuration": 60
     },
     "app/api/cron/lead-replies/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/welcome-replies/route.ts": {
       "maxDuration": 300
     }
   }

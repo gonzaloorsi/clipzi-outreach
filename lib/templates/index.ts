@@ -32,6 +32,22 @@ import { build as buildStandupOrgPt } from "./standup-org-pt";
 import { build as buildMediaOrgEn } from "./media-org-en";
 import { build as buildMediaOrgEs } from "./media-org-es";
 import { build as buildMediaOrgPt } from "./media-org-pt";
+// Journalist variants — split into individual (B2C: independent journalists
+// with video shows) vs org (B2B: press unions, associations, clubs, schools).
+import { build as buildJournalistIndividualEn } from "./journalist-individual-en";
+import { build as buildJournalistIndividualEs } from "./journalist-individual-es";
+import { build as buildJournalistIndividualPt } from "./journalist-individual-pt";
+import { build as buildJournalistOrgEn } from "./journalist-org-en";
+import { build as buildJournalistOrgEs } from "./journalist-org-es";
+import { build as buildJournalistOrgPt } from "./journalist-org-pt";
+// Photographer variants — split into individual (B2C: photographers/videographers
+// shooting event video) vs org (B2B: studios and photographer associations).
+import { build as buildPhotographerIndividualEn } from "./photographer-individual-en";
+import { build as buildPhotographerIndividualEs } from "./photographer-individual-es";
+import { build as buildPhotographerIndividualPt } from "./photographer-individual-pt";
+import { build as buildPhotographerOrgEn } from "./photographer-org-en";
+import { build as buildPhotographerOrgEs } from "./photographer-org-es";
+import { build as buildPhotographerOrgPt } from "./photographer-org-pt";
 
 const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
@@ -63,6 +79,30 @@ const MEDIA_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> =
   en: buildMediaOrgEn,
   es: buildMediaOrgEs,
   pt: buildMediaOrgPt,
+};
+
+const JOURNALIST_INDIVIDUAL_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildJournalistIndividualEn,
+  es: buildJournalistIndividualEs,
+  pt: buildJournalistIndividualPt,
+};
+
+const JOURNALIST_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildJournalistOrgEn,
+  es: buildJournalistOrgEs,
+  pt: buildJournalistOrgPt,
+};
+
+const PHOTOGRAPHER_INDIVIDUAL_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildPhotographerIndividualEn,
+  es: buildPhotographerIndividualEs,
+  pt: buildPhotographerIndividualPt,
+};
+
+const PHOTOGRAPHER_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildPhotographerOrgEn,
+  es: buildPhotographerOrgEs,
+  pt: buildPhotographerOrgPt,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -151,17 +191,45 @@ export function isMediaOrg(discoveredVia: string | null | undefined): boolean {
   return discoveredVia.startsWith("sonar:media-org:");
 }
 
+export function isJournalistIndividual(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:journalist-individual:");
+}
+
+export function isJournalistOrg(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:journalist-org:");
+}
+
+export function isPhotographerIndividual(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:photographer-individual:");
+}
+
+export function isPhotographerOrg(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:photographer-org:");
+}
+
 export type TemplateKind =
   | "creator"
   | "agency"
   | "standup-individual"
   | "standup-org"
-  | "media-org";
+  | "media-org"
+  | "journalist-individual"
+  | "journalist-org"
+  | "photographer-individual"
+  | "photographer-org";
 
 export function detectKind(discoveredVia: string | null | undefined): TemplateKind {
   if (isStandupIndividual(discoveredVia)) return "standup-individual";
   if (isStandupOrg(discoveredVia)) return "standup-org";
   if (isMediaOrg(discoveredVia)) return "media-org";
+  if (isJournalistIndividual(discoveredVia)) return "journalist-individual";
+  if (isJournalistOrg(discoveredVia)) return "journalist-org";
+  if (isPhotographerIndividual(discoveredVia)) return "photographer-individual";
+  if (isPhotographerOrg(discoveredVia)) return "photographer-org";
   if (isAgency(discoveredVia)) return "agency";
   return "creator";
 }
@@ -187,6 +255,30 @@ function builderForKind(
       return (
         MEDIA_ORG_TEMPLATES[language] ??
         MEDIA_ORG_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "journalist-individual":
+      return (
+        JOURNALIST_INDIVIDUAL_TEMPLATES[language] ??
+        JOURNALIST_INDIVIDUAL_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "journalist-org":
+      return (
+        JOURNALIST_ORG_TEMPLATES[language] ??
+        JOURNALIST_ORG_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "photographer-individual":
+      return (
+        PHOTOGRAPHER_INDIVIDUAL_TEMPLATES[language] ??
+        PHOTOGRAPHER_INDIVIDUAL_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "photographer-org":
+      return (
+        PHOTOGRAPHER_ORG_TEMPLATES[language] ??
+        PHOTOGRAPHER_ORG_TEMPLATES.en ??
         CREATOR_TEMPLATES.en
       );
     case "agency":

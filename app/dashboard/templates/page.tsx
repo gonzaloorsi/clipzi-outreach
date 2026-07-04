@@ -25,6 +25,10 @@ const KIND_LABEL: Record<string, string> = {
   "standup-individual": "Standup individual (B2C)",
   "standup-org": "Standup org (B2B)",
   "media-org": "Medios (radio/podcast/stream) (B2B)",
+  "journalist-individual": "Periodista individual (B2C)",
+  "journalist-org": "Prensa org (unión/asociación/escuela) (B2B)",
+  "photographer-individual": "Fotógrafo individual (B2C)",
+  "photographer-org": "Foto/video org (estudio/asociación) (B2B)",
 };
 
 const KIND_ORDER = [
@@ -33,6 +37,10 @@ const KIND_ORDER = [
   "standup-individual",
   "standup-org",
   "media-org",
+  "journalist-individual",
+  "journalist-org",
+  "photographer-individual",
+  "photographer-org",
 ] as const;
 type Kind = (typeof KIND_ORDER)[number];
 
@@ -40,6 +48,10 @@ function kindOf(key: string): Kind {
   if (key.startsWith("standup-individual-")) return "standup-individual";
   if (key.startsWith("standup-org-")) return "standup-org";
   if (key.startsWith("media-org-")) return "media-org";
+  if (key.startsWith("journalist-individual-")) return "journalist-individual";
+  if (key.startsWith("journalist-org-")) return "journalist-org";
+  if (key.startsWith("photographer-individual-")) return "photographer-individual";
+  if (key.startsWith("photographer-org-")) return "photographer-org";
   if (key.startsWith("agency-")) return "agency";
   return "creator";
 }
@@ -74,6 +86,10 @@ export default async function TemplatesListPage() {
     "standup-individual": [],
     "standup-org": [],
     "media-org": [],
+    "journalist-individual": [],
+    "journalist-org": [],
+    "photographer-individual": [],
+    "photographer-org": [],
   };
   for (const t of all) {
     grouped[kindOf(t.key)].push(t);

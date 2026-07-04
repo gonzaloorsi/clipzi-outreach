@@ -612,6 +612,133 @@ export async function getLastMediaOrgRun(): Promise<DiscoveryRunRow | null> {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// ─── Journalist / Photographer vertical stats ────────────────────────────
+// Same shape as MediaOrgStats. Both families use the discoveredVia layout
+// sonar:{family}-individual:{country}:{category} and
+// sonar:{family}-org:{country}:{category}, so one parameterized query covers
+// them (LIKE 'sonar:{family}-%' matches individual + org).
+
+async function getSonarFamilyStats(
+  family: "journalist" | "photographer",
+): Promise<MediaOrgStats> {
+  const like = `sonar:${family}-%`;
+  const summary = await db.execute<{
+    total_queued: number;
+    total_sent: number;
+    total_ever: number;
+    new_7d: number;
+    sent_7d: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE ${like} AND status = 'queued') AS total_queued,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE ${like} AND status = 'sent') AS total_sent,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE ${like}) AS total_ever,
+      (SELECT COUNT(*)::int FROM channels
+        WHERE discovered_via LIKE ${like}
+        AND created_at > NOW() - INTERVAL '7 days') AS new_7d,
+      (SELECT COUNT(*)::int FROM sends s
+        JOIN channels c ON c.id = s.channel_id
+        WHERE c.discovered_via LIKE ${like}
+        AND s.status = 'sent' AND s.sent_at > NOW() - INTERVAL '7 days') AS sent_7d
+  `);
+  const row = (summary.rows ?? summary)[0];
+
+  const byCountryResult = await db.execute<{
+    country: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      COALESCE(country, '?') AS country,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE ${like}
+    GROUP BY country
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+    LIMIT 10
+  `);
+
+  // discoveredVia layout: sonar:{family}-{kind}:{country}:{category}. Category
+  // is SPLIT_PART index 4 (1-indexed in PG): journalist / press-union / studio...
+  const byCategoryResult = await db.execute<{
+    category: string;
+    queued: number;
+    sent: number;
+  } & Record<string, unknown>>(sql`
+    SELECT
+      SPLIT_PART(discovered_via, ':', 4) AS category,
+      COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
+      COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+    FROM channels
+    WHERE discovered_via LIKE ${like}
+    GROUP BY category
+    ORDER BY (COUNT(*) FILTER (WHERE status = 'queued')) DESC, sent DESC
+  `);
+
+  return {
+    totalQueued: row.total_queued,
+    totalSent: row.total_sent,
+    totalEverDiscovered: row.total_ever,
+    newLast7d: row.new_7d,
+    sentLast7d: row.sent_7d,
+    byCountry: (byCountryResult.rows ?? byCountryResult).map((r) => ({
+      country: r.country,
+      queued: r.queued,
+      sent: r.sent,
+    })),
+    byCategory: (byCategoryResult.rows ?? byCategoryResult).map((r) => ({
+      category: r.category || "?",
+      queued: r.queued,
+      sent: r.sent,
+    })),
+  };
+}
+
+async function getLastSonarFamilyRun(
+  family: "journalist" | "photographer",
+): Promise<DiscoveryRunRow | null> {
+  const like = `%${family}%`;
+  const result = await db.execute<DiscoveryRunRow & Record<string, unknown>>(sql`
+    SELECT
+      id, source, started_at, ended_at,
+      CASE
+        WHEN ended_at IS NOT NULL
+        THEN ROUND(EXTRACT(EPOCH FROM (ended_at - started_at))::numeric, 1)::float
+        ELSE NULL
+      END AS duration_s,
+      quota_used, channels_seen, channels_new, qualified_new,
+      0::float AS freshness_pct,
+      0::float AS qualified_pct,
+      error
+    FROM discovery_runs
+    WHERE source LIKE ${like}
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+  const rows = result.rows ?? result;
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export function getJournalistStats(): Promise<MediaOrgStats> {
+  return getSonarFamilyStats("journalist");
+}
+
+export function getLastJournalistRun(): Promise<DiscoveryRunRow | null> {
+  return getLastSonarFamilyRun("journalist");
+}
+
+export function getPhotographerStats(): Promise<MediaOrgStats> {
+  return getSonarFamilyStats("photographer");
+}
+
+export function getLastPhotographerRun(): Promise<DiscoveryRunRow | null> {
+  return getLastSonarFamilyRun("photographer");
+}
+
 // ─── Bouncer / email validation stats ────────────────────────────────────
 
 export interface BouncerStats {
