@@ -19,3 +19,4 @@ batch2_new_channels.*
 # misc
 .DS_Store
 *.log
+.vercel
