@@ -34,6 +34,14 @@
       "schedule": "55 */3 * * *"
     },
     {
+      "path": "/api/cron/linkbuilding-discovery",
+      "schedule": "25 */3 * * *"
+    },
+    {
+      "path": "/api/cron/linkbuilding-followup",
+      "schedule": "42 * * * *"
+    },
+    {
       "path": "/api/cron/daily-report",
       "schedule": "0 0 * * *"
     },
@@ -70,6 +78,12 @@
     },
     "app/api/cron/photographer-discovery/route.ts": {
       "maxDuration": 800
+    },
+    "app/api/cron/linkbuilding-discovery/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/linkbuilding-followup/route.ts": {
+      "maxDuration": 300
     },
     "app/api/cron/daily-report/route.ts": {
       "maxDuration": 60

@@ -19,6 +19,8 @@ import {
   getLastJournalistRun,
   getPhotographerStats,
   getLastPhotographerRun,
+  getLinkbuildingStats,
+  getLastLinkbuildingRun,
   getBouncerStats,
 } from "@/lib/insights";
 
@@ -206,6 +208,7 @@ export default async function DashboardPage() {
     mediaOrgStats, lastMediaOrgRun,
     journalistStats, lastJournalistRun,
     photographerStats, lastPhotographerRun,
+    linkbuildingStats, lastLinkbuildingRun,
     bouncerStats,
   ] = await Promise.all([
     getKPIs(),
@@ -225,6 +228,8 @@ export default async function DashboardPage() {
     getLastJournalistRun(),
     getPhotographerStats(),
     getLastPhotographerRun(),
+    getLinkbuildingStats(),
+    getLastLinkbuildingRun(),
     getBouncerStats(),
   ]);
 
@@ -311,8 +316,11 @@ export default async function DashboardPage() {
               const agency = Math.max(0, Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")));
               const standup = Math.max(0, Math.min(100, Number(process.env.STANDUP_SEND_RATIO ?? "10")));
               const mediaOrg = Math.max(0, Math.min(100, Number(process.env.MEDIA_ORG_SEND_RATIO ?? "10")));
-              const creator = Math.max(0, 100 - agency - standup - mediaOrg);
-              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup · ${mediaOrg}% media-org`;
+              const journalist = Math.max(0, Math.min(100, Number(process.env.JOURNALIST_SEND_RATIO ?? "10")));
+              const photographer = Math.max(0, Math.min(100, Number(process.env.PHOTOGRAPHER_SEND_RATIO ?? "10")));
+              const linkbuilding = Math.max(0, Math.min(100, Number(process.env.LINKBUILDING_SEND_RATIO ?? "20")));
+              const creator = Math.max(0, 100 - agency - standup - mediaOrg - journalist - photographer - linkbuilding);
+              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup · ${mediaOrg}% media-org · ${journalist}% periodistas · ${photographer}% fotógrafos · ${linkbuilding}% linkbuilding`;
             })()}.
           </p>
           <div
@@ -534,6 +542,16 @@ export default async function DashboardPage() {
           cronMinute={55}
           stats={photographerStats}
           lastRun={lastPhotographerRun}
+        />
+
+        <SonarFamilySection
+          title="Linkbuilding (blogs, listicles y directorios)"
+          hint="Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar blogs de marketing/SEO, autores de listicles de herramientas de IA para video y directorios SaaS en 14 países (rotando 6 temas por día). El objetivo es que agreguen Clipzi a sus artículos con link (SEO + citas en respuestas de LLMs). Ofrecemos acceso Creator gratis, nunca plata."
+          entityLabel="Sitios"
+          categoryLabels={LINKBUILDING_CATEGORY_LABELS}
+          cronMinute={25}
+          stats={linkbuildingStats}
+          lastRun={lastLinkbuildingRun}
         />
 
         <BouncerSection stats={bouncerStats} />
@@ -1508,6 +1526,12 @@ const PHOTOGRAPHER_CATEGORY_LABELS: Record<string, string> = {
   photographer: "Fotógrafos individuales",
   studio: "Estudios de foto/video",
   association: "Asociaciones de fotógrafos",
+};
+
+const LINKBUILDING_CATEGORY_LABELS: Record<string, string> = {
+  listicle: "Listicles / roundups de herramientas",
+  blog: "Blogs de marketing/SEO/creators",
+  directory: "Directorios SaaS",
 };
 
 function nextEvery3hRun(minute: number): { at: Date; inMinutes: number } {

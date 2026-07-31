@@ -10,6 +10,10 @@
 export interface TemplateInput {
   channelName: string;
   fromName: string;
+  // Optional context: a human-readable reference to the prospect's relevant
+  // article (host/path, no protocol). Only the linkbuilding templates use it;
+  // naming the specific article measurably lifts reply rates.
+  article?: string;
 }
 
 export interface TemplateOutput {

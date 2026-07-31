@@ -167,10 +167,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Six-way split: creators / agencies / standup / media-org / journalist /
-    // photographer. AGENCY_SEND_RATIO default 20, STANDUP_SEND_RATIO default 10,
-    // MEDIA_ORG_SEND_RATIO default 10, JOURNALIST_SEND_RATIO default 10,
-    // PHOTOGRAPHER_SEND_RATIO default 10, creators = remainder.
+    // Seven-way split: creators / agencies / standup / media-org / journalist /
+    // photographer / linkbuilding. AGENCY_SEND_RATIO default 20,
+    // LINKBUILDING_SEND_RATIO default 20, the other verticals default 10,
+    // creators = remainder.
     // Ratios clamped 0-100 each. If their sum exceeds 100 we proportionally
     // scale the slot ratios so creators get at least 0.
     const agencyPctRaw = Math.max(
@@ -193,13 +193,18 @@ export async function GET(req: NextRequest) {
       0,
       Math.min(100, Number(process.env.PHOTOGRAPHER_SEND_RATIO ?? "10")),
     );
+    const linkbuildingPctRaw = Math.max(
+      0,
+      Math.min(100, Number(process.env.LINKBUILDING_SEND_RATIO ?? "20")),
+    );
     let agencyPct = agencyPctRaw;
     let standupPct = standupPctRaw;
     let mediaOrgPct = mediaOrgPctRaw;
     let journalistPct = journalistPctRaw;
     let photographerPct = photographerPctRaw;
+    let linkbuildingPct = linkbuildingPctRaw;
     const sumPct =
-      agencyPct + standupPct + mediaOrgPct + journalistPct + photographerPct;
+      agencyPct + standupPct + mediaOrgPct + journalistPct + photographerPct + linkbuildingPct;
     if (sumPct > 100) {
       const scale = 100 / sumPct;
       agencyPct *= scale;
@@ -207,17 +212,20 @@ export async function GET(req: NextRequest) {
       mediaOrgPct *= scale;
       journalistPct *= scale;
       photographerPct *= scale;
+      linkbuildingPct *= scale;
     }
     const agencyRatio = agencyPct / 100;
     const standupRatio = standupPct / 100;
     const mediaOrgRatio = mediaOrgPct / 100;
     const journalistRatio = journalistPct / 100;
     const photographerRatio = photographerPct / 100;
+    const linkbuildingRatio = linkbuildingPct / 100;
     const agencyTarget = Math.round(max * agencyRatio);
     const standupTarget = Math.round(max * standupRatio);
     const mediaOrgTarget = Math.round(max * mediaOrgRatio);
     const journalistTarget = Math.round(max * journalistRatio);
     const photographerTarget = Math.round(max * photographerRatio);
+    const linkbuildingTarget = Math.round(max * linkbuildingRatio);
     const creatorTarget = Math.max(
       0,
       max -
@@ -225,7 +233,8 @@ export async function GET(req: NextRequest) {
         standupTarget -
         mediaOrgTarget -
         journalistTarget -
-        photographerTarget,
+        photographerTarget -
+        linkbuildingTarget,
     );
 
     const isAgencyExpr = sql`(
@@ -248,9 +257,12 @@ export async function GET(req: NextRequest) {
       COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:photographer-individual:%'
       OR COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:photographer-org:%'
     )`;
+    const isLinkbuildingExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:linkbuilding-site:%'
+    )`;
     // Creator = none of the named verticals. Required because "NOT agency"
     // alone would sweep the other vertical rows into the creator pool.
-    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr} AND NOT ${isJournalistExpr} AND NOT ${isPhotographerExpr})`;
+    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr} AND NOT ${isJournalistExpr} AND NOT ${isPhotographerExpr} AND NOT ${isLinkbuildingExpr})`;
 
     const selectFields = {
       id: channels.id,
@@ -262,6 +274,24 @@ export async function GET(req: NextRequest) {
       language: channels.language,
       subscribers: channels.subscribers,
       discoveredVia: channels.discoveredVia,
+      // Linkbuilding repurposes topicCategories as [articleUrl] for
+      // per-article personalization. null/YT topic URIs are ignored below.
+      topicCategories: channels.topicCategories,
+    };
+
+    // Human-readable article reference for linkbuilding rows: strip protocol,
+    // www and query so the email reads "your article at site.com/best-ai-tools"
+    // instead of pasting a raw URL. Only linkbuilding rows carry an http URL in
+    // topicCategories; every other vertical stores null or YT topic URIs there.
+    const articleRef = (c: { discoveredVia: string | null; topicCategories: unknown }): string | null => {
+      if (!(c.discoveredVia ?? "").startsWith("sonar:linkbuilding-")) return null;
+      const first = Array.isArray(c.topicCategories) ? c.topicCategories[0] : null;
+      if (typeof first !== "string" || !first.startsWith("http")) return null;
+      const readable = first
+        .replace(/^https?:\/\/(www\.)?/, "")
+        .split(/[?#]/)[0]
+        .replace(/\/$/, "");
+      return readable.length > 4 && readable.length <= 90 ? readable : null;
     };
 
     const [
@@ -271,6 +301,7 @@ export async function GET(req: NextRequest) {
       mediaOrgPool,
       journalistPool,
       photographerPool,
+      linkbuildingPool,
     ] = await Promise.all([
       creatorTarget > 0
         ? db
@@ -320,27 +351,40 @@ export async function GET(req: NextRequest) {
             .orderBy(desc(channels.score))
             .limit(photographerTarget)
         : Promise.resolve([]),
+      linkbuildingTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isLinkbuildingExpr))
+            .orderBy(desc(channels.score))
+            .limit(linkbuildingTarget)
+        : Promise.resolve([]),
     ]);
 
     // Concat order: B2B verticals first (agency, standup, media-org, journalist,
-    // photographer), creators last.
+    // photographer, linkbuilding), creators last.
     let candidates = [
       ...agencyPool,
       ...standupPool,
       ...mediaOrgPool,
       ...journalistPool,
       ...photographerPool,
+      ...linkbuildingPool,
       ...creatorPool,
     ];
 
-    // Backfill: any deficit is filled from the broader pool (any kind not yet picked).
+    // Backfill: any deficit is filled from the broader pool (any kind not yet
+    // picked). Linkbuilding is EXCLUDED from backfill on purpose: its daily
+    // volume must stay capped at its ratio (finite pool of quality sites, and
+    // we don't want backlink asks eating all idle capacity when creator
+    // discovery runs dry).
     const shortage = max - candidates.length;
     if (shortage > 0) {
       const usedIds = new Set(candidates.map((c) => c.id));
       const overfetch = await db
         .select(selectFields)
         .from(channels)
-        .where(and(...whereClauses))
+        .where(and(...whereClauses, sql`NOT ${isLinkbuildingExpr}`))
         .orderBy(desc(channels.score))
         .limit((shortage + candidates.length) * 2);
       const backfill = overfetch
@@ -350,7 +394,7 @@ export async function GET(req: NextRequest) {
     }
 
     log(
-      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org + ${journalistTarget} journalist + ${photographerTarget} photographer; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}/${journalistPool.length}/${photographerPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length - journalistPool.length - photographerPool.length)} backfill)`,
+      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org + ${journalistTarget} journalist + ${photographerTarget} photographer + ${linkbuildingTarget} linkbuilding; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}/${journalistPool.length}/${photographerPool.length}/${linkbuildingPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length - journalistPool.length - photographerPool.length - linkbuildingPool.length)} backfill)`,
     );
 
     if (candidates.length === 0) {
@@ -422,6 +466,7 @@ export async function GET(req: NextRequest) {
         country: c.country ?? null,
         language: c.language ?? null,
         discoveredVia: c.discoveredVia ?? null,
+        article: articleRef(c),
         // Deliverability defaults — discovered via GMass + GlockApps testing.
         // Plain text + lowercase subject lands in Inbox where HTML + Title Case
         // landed in Spam/Promotions across all sender domains. Templates stay
@@ -549,6 +594,7 @@ export async function GET(req: NextRequest) {
         mediaOrgRatioPct: mediaOrgRatio * 100,
         journalistRatioPct: journalistRatio * 100,
         photographerRatioPct: photographerRatio * 100,
+        linkbuildingRatioPct: linkbuildingRatio * 100,
         target: {
           creators: creatorTarget,
           agencies: agencyTarget,
@@ -556,6 +602,7 @@ export async function GET(req: NextRequest) {
           mediaOrg: mediaOrgTarget,
           journalist: journalistTarget,
           photographer: photographerTarget,
+          linkbuilding: linkbuildingTarget,
         },
         actual: {
           creators: creatorPool.length,
@@ -564,6 +611,7 @@ export async function GET(req: NextRequest) {
           mediaOrg: mediaOrgPool.length,
           journalist: journalistPool.length,
           photographer: photographerPool.length,
+          linkbuilding: linkbuildingPool.length,
           backfill: Math.max(
             0,
             candidates.length -
@@ -572,7 +620,8 @@ export async function GET(req: NextRequest) {
               standupPool.length -
               mediaOrgPool.length -
               journalistPool.length -
-              photographerPool.length,
+              photographerPool.length -
+              linkbuildingPool.length,
           ),
         },
       },

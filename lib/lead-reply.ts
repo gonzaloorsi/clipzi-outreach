@@ -13,7 +13,7 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { processedThreads } from "@/db/schema";
+import { channels, processedThreads, sends } from "@/db/schema";
 import {
   addThreadLabels,
   createDraftReply,
@@ -37,6 +37,7 @@ import {
   buildUserPrompt,
   type ThreadContext,
 } from "@/lib/lead-reply-playbook";
+import { LINKBUILDING_SYSTEM_PROMPT } from "@/lib/linkbuilding-reply-playbook";
 
 const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 // Exact slug can be confirmed in the Vercel AI Gateway model list; override via env.
@@ -200,6 +201,26 @@ async function retry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 1500): Pro
     }
   }
   throw lastErr;
+}
+
+/**
+ * True when this lead was contacted through the linkbuilding vertical.
+ * Resolved via sends.email (UNIQUE) → channels.discovered_via. Fails closed
+ * to `false` (default playbook) on any lookup error.
+ */
+async function isLinkbuildingLead(leadEmail: string): Promise<boolean> {
+  if (!leadEmail) return false;
+  try {
+    const rows = await db
+      .select({ discoveredVia: channels.discoveredVia })
+      .from(sends)
+      .innerJoin(channels, eq(sends.channelId, channels.id))
+      .where(eq(sends.email, leadEmail.toLowerCase()))
+      .limit(1);
+    return (rows[0]?.discoveredVia ?? "").startsWith("sonar:linkbuilding-");
+  } catch {
+    return false;
+  }
 }
 
 async function callLLM(ctx: ThreadContext, systemPrompt: string = SYSTEM_PROMPT): Promise<Decision> {
@@ -464,9 +485,17 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
       fullThread: condenseThread(thread),
     };
 
+    // First vertical-aware branch of the reply agent: linkbuilding replies are
+    // a backlink negotiation (blurb + free Creator access, never money), not a
+    // product sale. Everything else keeps the default playbook. Lookup failure
+    // falls back to the default playbook, same behavior as before this branch.
+    const systemPrompt = (await isLinkbuildingLead(leadEmail))
+      ? LINKBUILDING_SYSTEM_PROMPT
+      : SYSTEM_PROMPT;
+
     let decision: Decision;
     try {
-      decision = await callLLM(ctx);
+      decision = await callLLM(ctx, systemPrompt);
     } catch (e) {
       outcomes.push({
         ...baseOutcome,

@@ -48,6 +48,14 @@ import { build as buildPhotographerIndividualPt } from "./photographer-individua
 import { build as buildPhotographerOrgEn } from "./photographer-org-en";
 import { build as buildPhotographerOrgEs } from "./photographer-org-es";
 import { build as buildPhotographerOrgPt } from "./photographer-org-pt";
+// Linkbuilding variant — marketing/SEO blogs, listicle authors and tool
+// directories we want a Clipzi backlink from. Single kind (no individual/org
+// split), full 5-language coverage since blogs write in their market's language.
+import { build as buildLinkbuildingEn } from "./linkbuilding-en";
+import { build as buildLinkbuildingEs } from "./linkbuilding-es";
+import { build as buildLinkbuildingPt } from "./linkbuilding-pt";
+import { build as buildLinkbuildingDe } from "./linkbuilding-de";
+import { build as buildLinkbuildingFr } from "./linkbuilding-fr";
 
 const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
@@ -103,6 +111,14 @@ const PHOTOGRAPHER_ORG_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuil
   en: buildPhotographerOrgEn,
   es: buildPhotographerOrgEs,
   pt: buildPhotographerOrgPt,
+};
+
+const LINKBUILDING_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  en: buildLinkbuildingEn,
+  es: buildLinkbuildingEs,
+  pt: buildLinkbuildingPt,
+  de: buildLinkbuildingDe,
+  fr: buildLinkbuildingFr,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -211,6 +227,11 @@ export function isPhotographerOrg(discoveredVia: string | null | undefined): boo
   return discoveredVia.startsWith("sonar:photographer-org:");
 }
 
+export function isLinkbuilding(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:linkbuilding-site:");
+}
+
 export type TemplateKind =
   | "creator"
   | "agency"
@@ -220,9 +241,11 @@ export type TemplateKind =
   | "journalist-individual"
   | "journalist-org"
   | "photographer-individual"
-  | "photographer-org";
+  | "photographer-org"
+  | "linkbuilding";
 
 export function detectKind(discoveredVia: string | null | undefined): TemplateKind {
+  if (isLinkbuilding(discoveredVia)) return "linkbuilding";
   if (isStandupIndividual(discoveredVia)) return "standup-individual";
   if (isStandupOrg(discoveredVia)) return "standup-org";
   if (isMediaOrg(discoveredVia)) return "media-org";
@@ -279,6 +302,12 @@ function builderForKind(
       return (
         PHOTOGRAPHER_ORG_TEMPLATES[language] ??
         PHOTOGRAPHER_ORG_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "linkbuilding":
+      return (
+        LINKBUILDING_TEMPLATES[language] ??
+        LINKBUILDING_TEMPLATES.en ??
         CREATOR_TEMPLATES.en
       );
     case "agency":

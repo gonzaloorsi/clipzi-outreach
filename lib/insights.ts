@@ -619,7 +619,7 @@ export async function getLastMediaOrgRun(): Promise<DiscoveryRunRow | null> {
 // them (LIKE 'sonar:{family}-%' matches individual + org).
 
 async function getSonarFamilyStats(
-  family: "journalist" | "photographer",
+  family: "journalist" | "photographer" | "linkbuilding",
 ): Promise<MediaOrgStats> {
   const like = `sonar:${family}-%`;
   const summary = await db.execute<{
@@ -699,7 +699,7 @@ async function getSonarFamilyStats(
 }
 
 async function getLastSonarFamilyRun(
-  family: "journalist" | "photographer",
+  family: "journalist" | "photographer" | "linkbuilding",
 ): Promise<DiscoveryRunRow | null> {
   const like = `%${family}%`;
   const result = await db.execute<DiscoveryRunRow & Record<string, unknown>>(sql`
@@ -737,6 +737,14 @@ export function getPhotographerStats(): Promise<MediaOrgStats> {
 
 export function getLastPhotographerRun(): Promise<DiscoveryRunRow | null> {
   return getLastSonarFamilyRun("photographer");
+}
+
+export function getLinkbuildingStats(): Promise<MediaOrgStats> {
+  return getSonarFamilyStats("linkbuilding");
+}
+
+export function getLastLinkbuildingRun(): Promise<DiscoveryRunRow | null> {
+  return getLastSonarFamilyRun("linkbuilding");
 }
 
 // ─── Bouncer / email validation stats ────────────────────────────────────

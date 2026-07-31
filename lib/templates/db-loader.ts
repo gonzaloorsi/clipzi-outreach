@@ -45,6 +45,11 @@ import { build as photographerIndividualPt } from "./photographer-individual-pt"
 import { build as photographerOrgEn } from "./photographer-org-en";
 import { build as photographerOrgEs } from "./photographer-org-es";
 import { build as photographerOrgPt } from "./photographer-org-pt";
+import { build as linkbuildingEn } from "./linkbuilding-en";
+import { build as linkbuildingEs } from "./linkbuilding-es";
+import { build as linkbuildingPt } from "./linkbuilding-pt";
+import { build as linkbuildingDe } from "./linkbuilding-de";
+import { build as linkbuildingFr } from "./linkbuilding-fr";
 
 const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "creator-en": creatorEn,
@@ -76,6 +81,11 @@ const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "photographer-org-en": photographerOrgEn,
   "photographer-org-es": photographerOrgEs,
   "photographer-org-pt": photographerOrgPt,
+  "linkbuilding-en": linkbuildingEn,
+  "linkbuilding-es": linkbuildingEs,
+  "linkbuilding-pt": linkbuildingPt,
+  "linkbuilding-de": linkbuildingDe,
+  "linkbuilding-fr": linkbuildingFr,
 };
 
 export interface TemplateRow {
@@ -97,6 +107,9 @@ function buildFromStrings(subject: string, html: string): TemplateBuilder {
       s.replace(/\{(\w+)\}/g, (_, key) => {
         if (key === "channelName") return esc(input.channelName);
         if (key === "fromName") return esc(input.fromName);
+        // {article} interpolates to empty when the row has no article URL, so
+        // DB-edited templates must phrase around it or accept the gap.
+        if (key === "article") return input.article ? esc(input.article) : "";
         return `{${key}}`;
       });
     return {

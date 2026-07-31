@@ -248,6 +248,10 @@ const PLACEHOLDER_PATTERNS = [
   /^(user|name|nombre|email|correo|tu|you|your|sample|test|demo|hello|info|texto)@(domain|example|yourdomain|yourcompany|tudominio|tu-?empresa|empresa|nombredominio|company|texto)\./i,
   // Domain placeholders (catches *@domain.com, *@example.com, *@yourdomain.com etc.)
   /@(domain|example|yourdomain|yourcompany|tudominio|tu-?empresa|nombredominio|texto|dominio)\.(com|org|net|es|io|dominio)$/i,
+  // Template placeholders on the real email.com domain ("you@email.com" seen in
+  // the wild on blog contact forms; a real person on email.com never uses these
+  // local parts)
+  /^(you|your|user|name|email|correo|tu)@email\./i,
   // Bare ".dominio" TLD (Spanish placeholder convention)
   /\.dominio$/i,
   // Lorem ipsum-style

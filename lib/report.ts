@@ -94,6 +94,11 @@ const KIND_LABEL: Record<string, string> = {
   "standup-individual": "Standup (individuos)",
   "standup-org": "Standup (orgs)",
   "media-org": "Medios",
+  "journalist-individual": "Periodistas (individuos)",
+  "journalist-org": "Periodistas (orgs)",
+  "photographer-individual": "Fotógrafos (individuos)",
+  "photographer-org": "Fotógrafos (orgs)",
+  linkbuilding: "Linkbuilding",
 };
 
 function escapeHtml(s: string): string {

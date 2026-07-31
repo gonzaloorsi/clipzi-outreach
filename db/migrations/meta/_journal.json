@@ -36,6 +36,13 @@
       "when": 1780027733826,
       "tag": "0004_cool_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785539203545,
+      "tag": "0005_loud_valkyrie",
+      "breakpoints": true
     }
   ]
 }

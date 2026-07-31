@@ -29,6 +29,8 @@ export interface SendEmailParams {
   country: string | null;
   language: string | null;
   discoveredVia?: string | null;
+  // Human-readable article reference for linkbuilding personalization
+  article?: string | null;
   // Diagnostic flags (used by /api/debug/send-test only). Production cron
   // never sets these — they exist to test deliverability theories.
   textOnly?: boolean;       // strip HTML, send plain-text only
@@ -61,6 +63,7 @@ export async function buildEmail(params: SendEmailParams): Promise<{
   const { subject, html } = builder({
     channelName: params.channelName,
     fromName: params.fromName,
+    ...(params.article ? { article: params.article } : {}),
   });
   return { subject, html, language, kind, isAgency };
 }

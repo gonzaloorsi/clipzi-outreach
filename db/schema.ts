@@ -216,6 +216,30 @@ export const sends = pgTable(
   }),
 );
 
+// ─── followups ───────────────────────────────────────────────────────────────
+// One follow-up bump per original send (linkbuilding vertical only for now).
+// send_id UNIQUE is the "max one bump per contact" guarantee, mirroring the
+// no-repeat design of the sends table.
+
+export const followups = pgTable(
+  "followups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sendId: uuid("send_id")
+      .notNull()
+      .references(() => sends.id, { onDelete: "cascade" }),
+    espMessageId: text("esp_message_id"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    sendUq: uniqueIndex("followups_send_id_uq").on(t.sendId),
+    sentAtIdx: index("followups_sent_at_idx").on(t.sentAt),
+  }),
+);
+
 // ─── unsubscribes ────────────────────────────────────────────────────────────
 
 export const unsubscribes = pgTable("unsubscribes", {
