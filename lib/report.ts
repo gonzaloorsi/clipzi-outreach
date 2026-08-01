@@ -99,6 +99,7 @@ const KIND_LABEL: Record<string, string> = {
   "photographer-individual": "Fotógrafos (individuos)",
   "photographer-org": "Fotógrafos (orgs)",
   linkbuilding: "Linkbuilding",
+  church: "Iglesias",
 };
 
 function escapeHtml(s: string): string {

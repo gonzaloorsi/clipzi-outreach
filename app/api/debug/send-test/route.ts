@@ -48,6 +48,7 @@ const KIND_TO_DISCOVERED_VIA: Record<string, string> = {
   "photographer-individual": "sonar:photographer-individual:AR:photographer",
   "photographer-org": "sonar:photographer-org:AR:studio",
   linkbuilding: "sonar:linkbuilding-site:US:listicle",
+  church: "sonar:church-org:AR:church",
 };
 
 const VALID_LANGS = new Set(["es", "en", "pt", "de", "fr"]);

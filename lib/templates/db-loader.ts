@@ -50,6 +50,9 @@ import { build as linkbuildingEs } from "./linkbuilding-es";
 import { build as linkbuildingPt } from "./linkbuilding-pt";
 import { build as linkbuildingDe } from "./linkbuilding-de";
 import { build as linkbuildingFr } from "./linkbuilding-fr";
+import { build as churchEs } from "./church-es";
+import { build as churchPt } from "./church-pt";
+import { build as churchEn } from "./church-en";
 
 const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "creator-en": creatorEn,
@@ -86,6 +89,9 @@ const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "linkbuilding-pt": linkbuildingPt,
   "linkbuilding-de": linkbuildingDe,
   "linkbuilding-fr": linkbuildingFr,
+  "church-es": churchEs,
+  "church-pt": churchPt,
+  "church-en": churchEn,
 };
 
 export interface TemplateRow {

@@ -21,6 +21,8 @@ import {
   getLastPhotographerRun,
   getLinkbuildingStats,
   getLastLinkbuildingRun,
+  getChurchStats,
+  getLastChurchRun,
   getBouncerStats,
 } from "@/lib/insights";
 
@@ -209,6 +211,7 @@ export default async function DashboardPage() {
     journalistStats, lastJournalistRun,
     photographerStats, lastPhotographerRun,
     linkbuildingStats, lastLinkbuildingRun,
+    churchStats, lastChurchRun,
     bouncerStats,
   ] = await Promise.all([
     getKPIs(),
@@ -230,6 +233,8 @@ export default async function DashboardPage() {
     getLastPhotographerRun(),
     getLinkbuildingStats(),
     getLastLinkbuildingRun(),
+    getChurchStats(),
+    getLastChurchRun(),
     getBouncerStats(),
   ]);
 
@@ -319,8 +324,9 @@ export default async function DashboardPage() {
               const journalist = Math.max(0, Math.min(100, Number(process.env.JOURNALIST_SEND_RATIO ?? "10")));
               const photographer = Math.max(0, Math.min(100, Number(process.env.PHOTOGRAPHER_SEND_RATIO ?? "10")));
               const linkbuilding = Math.max(0, Math.min(100, Number(process.env.LINKBUILDING_SEND_RATIO ?? "20")));
-              const creator = Math.max(0, 100 - agency - standup - mediaOrg - journalist - photographer - linkbuilding);
-              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup · ${mediaOrg}% media-org · ${journalist}% periodistas · ${photographer}% fotógrafos · ${linkbuilding}% linkbuilding`;
+              const church = Math.max(0, Math.min(100, Number(process.env.CHURCH_SEND_RATIO ?? "10")));
+              const creator = Math.max(0, 100 - agency - standup - mediaOrg - journalist - photographer - linkbuilding - church);
+              return `${creator}% creadores · ${agency}% agencias · ${standup}% standup · ${mediaOrg}% media-org · ${journalist}% periodistas · ${photographer}% fotógrafos · ${linkbuilding}% linkbuilding · ${church}% iglesias`;
             })()}.
           </p>
           <div
@@ -552,6 +558,16 @@ export default async function DashboardPage() {
           cronMinute={25}
           stats={linkbuildingStats}
           lastRun={lastLinkbuildingRun}
+        />
+
+        <SonarFamilySection
+          title="Búsqueda de iglesias (evangélicas + ministerios)"
+          hint="Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar iglesias evangélicas con canal de YouTube ACTIVO (transmiten sus servicios) y ministerios cristianos con contenido en video, en AR/MX/CO/BR (piloto, rotando 6 estilos por día). El pitch es alcance del mensaje: un sermón de 1 hora = 5-6 clips para Reels/TikTok."
+          entityLabel="Iglesias"
+          categoryLabels={CHURCH_CATEGORY_LABELS}
+          cronMinute={35}
+          stats={churchStats}
+          lastRun={lastChurchRun}
         />
 
         <BouncerSection stats={bouncerStats} />
@@ -1532,6 +1548,11 @@ const LINKBUILDING_CATEGORY_LABELS: Record<string, string> = {
   listicle: "Listicles / roundups de herramientas",
   blog: "Blogs de marketing/SEO/creators",
   directory: "Directorios SaaS",
+};
+
+const CHURCH_CATEGORY_LABELS: Record<string, string> = {
+  church: "Iglesias evangélicas",
+  ministry: "Ministerios / redes cristianas",
 };
 
 function nextEvery3hRun(minute: number): { at: Date; inMinutes: number } {

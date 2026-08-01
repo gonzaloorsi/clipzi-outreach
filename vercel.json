@@ -42,6 +42,10 @@
       "schedule": "42 * * * *"
     },
     {
+      "path": "/api/cron/church-discovery",
+      "schedule": "35 */3 * * *"
+    },
+    {
       "path": "/api/cron/daily-report",
       "schedule": "0 0 * * *"
     },
@@ -84,6 +88,9 @@
     },
     "app/api/cron/linkbuilding-followup/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron/church-discovery/route.ts": {
+      "maxDuration": 800
     },
     "app/api/cron/daily-report/route.ts": {
       "maxDuration": 60

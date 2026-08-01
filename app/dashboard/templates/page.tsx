@@ -30,6 +30,7 @@ const KIND_LABEL: Record<string, string> = {
   "photographer-individual": "Fotógrafo individual (B2C)",
   "photographer-org": "Foto/video org (estudio/asociación) (B2B)",
   linkbuilding: "Linkbuilding (blogs/listicles/directorios)",
+  church: "Iglesias y ministerios (B2B)",
 };
 
 const KIND_ORDER = [
@@ -43,6 +44,7 @@ const KIND_ORDER = [
   "photographer-individual",
   "photographer-org",
   "linkbuilding",
+  "church",
 ] as const;
 type Kind = (typeof KIND_ORDER)[number];
 
@@ -55,6 +57,7 @@ function kindOf(key: string): Kind {
   if (key.startsWith("photographer-individual-")) return "photographer-individual";
   if (key.startsWith("photographer-org-")) return "photographer-org";
   if (key.startsWith("linkbuilding-")) return "linkbuilding";
+  if (key.startsWith("church-")) return "church";
   if (key.startsWith("agency-")) return "agency";
   return "creator";
 }
@@ -94,6 +97,7 @@ export default async function TemplatesListPage() {
     "photographer-individual": [],
     "photographer-org": [],
     linkbuilding: [],
+    church: [],
   };
   for (const t of all) {
     grouped[kindOf(t.key)].push(t);

@@ -56,6 +56,11 @@ import { build as buildLinkbuildingEs } from "./linkbuilding-es";
 import { build as buildLinkbuildingPt } from "./linkbuilding-pt";
 import { build as buildLinkbuildingDe } from "./linkbuilding-de";
 import { build as buildLinkbuildingFr } from "./linkbuilding-fr";
+// Church variant — evangelical churches and Christian ministries with active
+// YouTube channels (B2B-ish). Pilot markets es/pt with en fallback.
+import { build as buildChurchEs } from "./church-es";
+import { build as buildChurchPt } from "./church-pt";
+import { build as buildChurchEn } from "./church-en";
 
 const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
@@ -119,6 +124,12 @@ const LINKBUILDING_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>
   pt: buildLinkbuildingPt,
   de: buildLinkbuildingDe,
   fr: buildLinkbuildingFr,
+};
+
+const CHURCH_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  es: buildChurchEs,
+  pt: buildChurchPt,
+  en: buildChurchEn,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -232,6 +243,11 @@ export function isLinkbuilding(discoveredVia: string | null | undefined): boolea
   return discoveredVia.startsWith("sonar:linkbuilding-site:");
 }
 
+export function isChurch(discoveredVia: string | null | undefined): boolean {
+  if (!discoveredVia) return false;
+  return discoveredVia.startsWith("sonar:church-org:");
+}
+
 export type TemplateKind =
   | "creator"
   | "agency"
@@ -242,10 +258,12 @@ export type TemplateKind =
   | "journalist-org"
   | "photographer-individual"
   | "photographer-org"
-  | "linkbuilding";
+  | "linkbuilding"
+  | "church";
 
 export function detectKind(discoveredVia: string | null | undefined): TemplateKind {
   if (isLinkbuilding(discoveredVia)) return "linkbuilding";
+  if (isChurch(discoveredVia)) return "church";
   if (isStandupIndividual(discoveredVia)) return "standup-individual";
   if (isStandupOrg(discoveredVia)) return "standup-org";
   if (isMediaOrg(discoveredVia)) return "media-org";
@@ -308,6 +326,12 @@ function builderForKind(
       return (
         LINKBUILDING_TEMPLATES[language] ??
         LINKBUILDING_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "church":
+      return (
+        CHURCH_TEMPLATES[language] ??
+        CHURCH_TEMPLATES.en ??
         CREATOR_TEMPLATES.en
       );
     case "agency":

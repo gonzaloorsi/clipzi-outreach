@@ -197,14 +197,19 @@ export async function GET(req: NextRequest) {
       0,
       Math.min(100, Number(process.env.LINKBUILDING_SEND_RATIO ?? "20")),
     );
+    const churchPctRaw = Math.max(
+      0,
+      Math.min(100, Number(process.env.CHURCH_SEND_RATIO ?? "10")),
+    );
     let agencyPct = agencyPctRaw;
     let standupPct = standupPctRaw;
     let mediaOrgPct = mediaOrgPctRaw;
     let journalistPct = journalistPctRaw;
     let photographerPct = photographerPctRaw;
     let linkbuildingPct = linkbuildingPctRaw;
+    let churchPct = churchPctRaw;
     const sumPct =
-      agencyPct + standupPct + mediaOrgPct + journalistPct + photographerPct + linkbuildingPct;
+      agencyPct + standupPct + mediaOrgPct + journalistPct + photographerPct + linkbuildingPct + churchPct;
     if (sumPct > 100) {
       const scale = 100 / sumPct;
       agencyPct *= scale;
@@ -213,6 +218,7 @@ export async function GET(req: NextRequest) {
       journalistPct *= scale;
       photographerPct *= scale;
       linkbuildingPct *= scale;
+      churchPct *= scale;
     }
     const agencyRatio = agencyPct / 100;
     const standupRatio = standupPct / 100;
@@ -220,12 +226,14 @@ export async function GET(req: NextRequest) {
     const journalistRatio = journalistPct / 100;
     const photographerRatio = photographerPct / 100;
     const linkbuildingRatio = linkbuildingPct / 100;
+    const churchRatio = churchPct / 100;
     const agencyTarget = Math.round(max * agencyRatio);
     const standupTarget = Math.round(max * standupRatio);
     const mediaOrgTarget = Math.round(max * mediaOrgRatio);
     const journalistTarget = Math.round(max * journalistRatio);
     const photographerTarget = Math.round(max * photographerRatio);
     const linkbuildingTarget = Math.round(max * linkbuildingRatio);
+    const churchTarget = Math.round(max * churchRatio);
     const creatorTarget = Math.max(
       0,
       max -
@@ -234,7 +242,8 @@ export async function GET(req: NextRequest) {
         mediaOrgTarget -
         journalistTarget -
         photographerTarget -
-        linkbuildingTarget,
+        linkbuildingTarget -
+        churchTarget,
     );
 
     const isAgencyExpr = sql`(
@@ -260,9 +269,12 @@ export async function GET(req: NextRequest) {
     const isLinkbuildingExpr = sql`(
       COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:linkbuilding-site:%'
     )`;
+    const isChurchExpr = sql`(
+      COALESCE(${channels.discoveredVia}, '') LIKE 'sonar:church-org:%'
+    )`;
     // Creator = none of the named verticals. Required because "NOT agency"
     // alone would sweep the other vertical rows into the creator pool.
-    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr} AND NOT ${isJournalistExpr} AND NOT ${isPhotographerExpr} AND NOT ${isLinkbuildingExpr})`;
+    const isCreatorExpr = sql`(NOT ${isAgencyExpr} AND NOT ${isStandupExpr} AND NOT ${isMediaOrgExpr} AND NOT ${isJournalistExpr} AND NOT ${isPhotographerExpr} AND NOT ${isLinkbuildingExpr} AND NOT ${isChurchExpr})`;
 
     const selectFields = {
       id: channels.id,
@@ -302,6 +314,7 @@ export async function GET(req: NextRequest) {
       journalistPool,
       photographerPool,
       linkbuildingPool,
+      churchPool,
     ] = await Promise.all([
       creatorTarget > 0
         ? db
@@ -359,10 +372,18 @@ export async function GET(req: NextRequest) {
             .orderBy(desc(channels.score))
             .limit(linkbuildingTarget)
         : Promise.resolve([]),
+      churchTarget > 0
+        ? db
+            .select(selectFields)
+            .from(channels)
+            .where(and(...whereClauses, isChurchExpr))
+            .orderBy(desc(channels.score))
+            .limit(churchTarget)
+        : Promise.resolve([]),
     ]);
 
     // Concat order: B2B verticals first (agency, standup, media-org, journalist,
-    // photographer, linkbuilding), creators last.
+    // photographer, linkbuilding, church), creators last.
     let candidates = [
       ...agencyPool,
       ...standupPool,
@@ -370,6 +391,7 @@ export async function GET(req: NextRequest) {
       ...journalistPool,
       ...photographerPool,
       ...linkbuildingPool,
+      ...churchPool,
       ...creatorPool,
     ];
 
@@ -394,7 +416,7 @@ export async function GET(req: NextRequest) {
     }
 
     log(
-      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org + ${journalistTarget} journalist + ${photographerTarget} photographer + ${linkbuildingTarget} linkbuilding; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}/${journalistPool.length}/${photographerPool.length}/${linkbuildingPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length - journalistPool.length - photographerPool.length - linkbuildingPool.length)} backfill)`,
+      `candidates picked: ${candidates.length} (target split: ${creatorTarget} creators + ${agencyTarget} agencies + ${standupTarget} standup + ${mediaOrgTarget} media-org + ${journalistTarget} journalist + ${photographerTarget} photographer + ${linkbuildingTarget} linkbuilding + ${churchTarget} church; actual: ${creatorPool.length}/${agencyPool.length}/${standupPool.length}/${mediaOrgPool.length}/${journalistPool.length}/${photographerPool.length}/${linkbuildingPool.length}/${churchPool.length}, +${Math.max(0, candidates.length - creatorPool.length - agencyPool.length - standupPool.length - mediaOrgPool.length - journalistPool.length - photographerPool.length - linkbuildingPool.length - churchPool.length)} backfill)`,
     );
 
     if (candidates.length === 0) {
@@ -595,6 +617,7 @@ export async function GET(req: NextRequest) {
         journalistRatioPct: journalistRatio * 100,
         photographerRatioPct: photographerRatio * 100,
         linkbuildingRatioPct: linkbuildingRatio * 100,
+        churchRatioPct: churchRatio * 100,
         target: {
           creators: creatorTarget,
           agencies: agencyTarget,
@@ -603,6 +626,7 @@ export async function GET(req: NextRequest) {
           journalist: journalistTarget,
           photographer: photographerTarget,
           linkbuilding: linkbuildingTarget,
+          church: churchTarget,
         },
         actual: {
           creators: creatorPool.length,
@@ -612,6 +636,7 @@ export async function GET(req: NextRequest) {
           journalist: journalistPool.length,
           photographer: photographerPool.length,
           linkbuilding: linkbuildingPool.length,
+          church: churchPool.length,
           backfill: Math.max(
             0,
             candidates.length -
@@ -621,7 +646,8 @@ export async function GET(req: NextRequest) {
               mediaOrgPool.length -
               journalistPool.length -
               photographerPool.length -
-              linkbuildingPool.length,
+              linkbuildingPool.length -
+              churchPool.length,
           ),
         },
       },
