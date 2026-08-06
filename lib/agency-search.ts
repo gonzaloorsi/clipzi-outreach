@@ -259,6 +259,21 @@ const PLACEHOLDER_PATTERNS = [
   /@lorem\./i,
 ];
 
+/**
+ * Government / state / judiciary addresses. Cold-mailing these is a compliance
+ * and deliverability hazard (we scraped the Argentine data-protection authority
+ * from a privacy policy once, and mailed cultura@ inboxes of city governments).
+ * Matches .gov / .mil TLDs and gov/gob/mil/jus second-level labels anywhere in
+ * the domain (cultura@rosario.gob.ar, infodnpdp@jus.gov.ar, info@dta.gov.au).
+ */
+const GOVERNMENT_DOMAIN_RE = /@(?:[a-z0-9-]+\.)*(?:gov|gob|mil|jus|senado|diputados|congreso)(?:\.[a-z]{2,3})?$/i;
+
+export function isGovernmentEmail(email: string): boolean {
+  return GOVERNMENT_DOMAIN_RE.test(email.trim());
+}
+
+// Shared unsuitable-email gate for every discovery vertical and the scraper:
+// placeholders AND government addresses are both unusable as outreach targets.
 export function isPlaceholderEmail(email: string): boolean {
-  return PLACEHOLDER_PATTERNS.some((re) => re.test(email));
+  return PLACEHOLDER_PATTERNS.some((re) => re.test(email)) || isGovernmentEmail(email);
 }

@@ -193,6 +193,10 @@ export const sends = pgTable(
 
     status: sendStatusEnum("status").notNull().default("pending"),
     espMessageId: text("esp_message_id"),
+    // RFC 5322 Message-ID we set ourselves on the outgoing mail, e.g.
+    // "<uuid@helloclipzi.dev>". Follow-ups reference it via In-Reply-To /
+    // References so the bump threads under the original in the lead's inbox.
+    rfcMessageId: text("rfc_message_id"),
     errorMessage: text("error_message"),
 
     sentAt: timestamp("sent_at", { withTimezone: true }),

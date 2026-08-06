@@ -31,6 +31,9 @@ export interface SendEmailParams {
   discoveredVia?: string | null;
   // Human-readable article reference for linkbuilding personalization
   article?: string | null;
+  // RFC 5322 Message-ID to set on the outgoing mail ("<uuid@sender-domain>").
+  // Stored on the sends row so follow-ups can thread via In-Reply-To.
+  rfcMessageId?: string;
   // Diagnostic flags (used by /api/debug/send-test only). Production cron
   // never sets these — they exist to test deliverability theories.
   textOnly?: boolean;       // strip HTML, send plain-text only
@@ -125,6 +128,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       to,
       subject,
       text: bodyText,
+      ...(params.rfcMessageId ? { headers: { "Message-ID": params.rfcMessageId } } : {}),
     });
     if (error) {
       return {

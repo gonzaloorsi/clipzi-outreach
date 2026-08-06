@@ -46,12 +46,15 @@ function isAuthorized(req: NextRequest): boolean {
 }
 
 // One-liner bump per language, Gonza voice, no em/en dashes.
+// Each bump must stand on its own: if the original landed in spam or went
+// unread, a context-free "bumping this" reads as gibberish and draws confused
+// replies or spam marks (real case: SaaS Argentina, Aug 2026).
 const BUMP_BODY: Record<SupportedLanguage, (fromName: string) => string> = {
-  en: (n) => `Quick bump in case this got buried. Happy to send the free access and the blurb whenever.\n\n${n}`,
-  es: (n) => `Te reflote esto por si quedó enterrado. Cuando quieras te mando el acceso gratis y el blurb.\n\n${n}`,
-  pt: (n) => `Só reforçando caso tenha ficado enterrado. Quando quiser, envio o acesso grátis e o blurb.\n\n${n}`,
-  de: (n) => `Kurzer Reminder, falls das untergegangen ist. Ich schicke euch gern jederzeit den Gratis-Zugang und den Blurb.\n\n${n}`,
-  fr: (n) => `Petit rappel au cas où ce message serait passé inaperçu. Je peux vous envoyer l'accès gratuit et le descriptif quand vous voulez.\n\n${n}`,
+  en: (n) => `Quick bump in case this got buried: I wrote about mentioning Clipzi (our AI clip tool) on your site, with free full access in exchange. Happy to send the access and the blurb whenever.\n\n${n}`,
+  es: (n) => `Te reflote esto por si quedó enterrado: te había escrito por una mención de Clipzi (nuestra herramienta de clips con IA) en tu sitio, con acceso completo gratis a cambio. Cuando quieras te mando el acceso y el blurb.\n\n${n}`,
+  pt: (n) => `Só reforçando caso tenha ficado enterrado: escrevi sobre mencionar o Clipzi (nossa ferramenta de clips com IA) no seu site, com acesso completo grátis em troca. Quando quiser, envio o acesso e o blurb.\n\n${n}`,
+  de: (n) => `Kurzer Reminder, falls das untergegangen ist: ich hatte wegen einer Erwähnung von Clipzi (unserem KI-Clip-Tool) auf eurer Seite geschrieben, mit kostenlosem Vollzugang als Gegenleistung. Ich schicke euch gern jederzeit den Zugang und den Blurb.\n\n${n}`,
+  fr: (n) => `Petit rappel au cas où ce message serait passé inaperçu : je vous avais écrit au sujet d'une mention de Clipzi (notre outil de clips IA) sur votre site, avec un accès complet gratuit en échange. Je peux vous envoyer l'accès et le descriptif quand vous voulez.\n\n${n}`,
 };
 
 interface CandidateRow {
@@ -63,6 +66,7 @@ interface CandidateRow {
   country: string | null;
   sender_email: string | null;
   sent_at: string;
+  rfc_message_id: string | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -114,7 +118,8 @@ export async function GET(req: NextRequest) {
         c.title,
         c.country,
         sen.email AS sender_email,
-        s.sent_at
+        s.sent_at,
+        s.rfc_message_id
       FROM sends s
       JOIN channels c ON c.id = s.channel_id
       LEFT JOIN senders sen ON sen.id = s.sender_id
@@ -177,6 +182,11 @@ export async function GET(req: NextRequest) {
           to: [cd.email],
           subject,
           text: body,
+          // Thread the bump under the original email. Older sends predate
+          // rfc_message_id; those go unthreaded (the bump copy self-explains).
+          ...(cd.rfc_message_id
+            ? { headers: { "In-Reply-To": cd.rfc_message_id, References: cd.rfc_message_id } }
+            : {}),
         });
         if (error) {
           failed++;

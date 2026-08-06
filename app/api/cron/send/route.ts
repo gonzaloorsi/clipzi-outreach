@@ -19,6 +19,7 @@ import { eq, and, sql, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { channels, sends, unsubscribes } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { isGovernmentEmail } from "@/lib/agency-search";
 import {
   loadSenderEmails,
   syncSendersFromEnv,
@@ -475,10 +476,28 @@ export async function GET(req: NextRequest) {
       const channelName = c.cleanName || c.title;
       const email = c.primaryEmail!;
 
+      // Defense in depth: pre-filter channels may still carry government
+      // addresses in the DB. Never cold-mail the state, whatever the source.
+      if (isGovernmentEmail(email)) {
+        log(`skipping gov email ${email} (channel ${c.id}), marking low_quality`);
+        try {
+          await db
+            .update(channels)
+            .set({ status: "low_quality", updatedAt: new Date() })
+            .where(eq(channels.id, c.id));
+        } catch {
+          // If the update fails the guard still skips it on every pass.
+        }
+        continue;
+      }
+
       if (dryRun) {
         pushResult(c, sender.email, "dry_run");
         continue;
       }
+
+      // Our own Message-ID so follow-up bumps can thread under this email.
+      const rfcMessageId = `<${crypto.randomUUID()}@${sender.email.split("@")[1]}>`;
 
       const res = await sendEmail({
         to: email,
@@ -489,6 +508,7 @@ export async function GET(req: NextRequest) {
         language: c.language ?? null,
         discoveredVia: c.discoveredVia ?? null,
         article: articleRef(c),
+        rfcMessageId,
         // Deliverability defaults — discovered via GMass + GlockApps testing.
         // Plain text + lowercase subject lands in Inbox where HTML + Title Case
         // landed in Spam/Promotions across all sender domains. Templates stay
@@ -514,6 +534,7 @@ export async function GET(req: NextRequest) {
               senderId: sender.id,
               status: "sent",
               espMessageId: res.messageId,
+              rfcMessageId,
               sentAt: new Date(),
               language: res.language,
               templateId: `v1_${res.kind.replace(/-/g, "_")}_${res.language}`,

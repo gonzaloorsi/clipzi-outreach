@@ -106,7 +106,7 @@ const CATEGORY_LABEL: Record<LinkbuildingCategory, string> = {
     "independent blogs, marketing agency blogs or consultant websites that published listicle/roundup articles reviewing or comparing AI video tools (NOT affiliate content mills where every tool link is an affiliate link)",
   blog: "video marketing, social media marketing, SEO or creator-economy blogs run by agencies, consultants or practitioners that regularly publish tool recommendations",
   directory:
-    "SaaS tool directories and software review sites that list AI or video tools and have an editorial/submission contact",
+    "SaaS tool directories and software review sites that PUBLISH curated lists or reviews of third-party AI or video tools and have an editorial/submission contact. NEVER a company that sells its own software product (an ERP, a CRM, an agency's own SaaS): if the site's main purpose is selling their product rather than reviewing other people's tools, exclude it",
 };
 
 function buildPrompt(
