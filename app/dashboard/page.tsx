@@ -552,7 +552,7 @@ export default async function DashboardPage() {
 
         <SonarFamilySection
           title="Linkbuilding (blogs, listicles y directorios)"
-          hint="Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar blogs de marketing/SEO, autores de listicles de herramientas de IA para video y directorios SaaS en 14 países (rotando 6 temas por día). El objetivo es que agreguen Clipzi a sus artículos con link (SEO + citas en respuestas de LLMs). Ofrecemos acceso Creator gratis, nunca plata."
+          hint="Cada 3 horas (8 ticks/día) consultamos Perplexity Sonar para encontrar blogs de marketing/SEO, autores de listicles de herramientas de IA para video y directorios SaaS en 14 países (rotando 6 temas por día). El objetivo es que agreguen Clipzi a sus artículos con link (SEO + citas en respuestas de LLMs). Ofrecemos acceso Starter gratis (primer mes a $0), nunca plata."
           entityLabel="Sitios"
           categoryLabels={LINKBUILDING_CATEGORY_LABELS}
           cronMinute={25}

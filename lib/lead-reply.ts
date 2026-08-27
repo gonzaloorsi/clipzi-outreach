@@ -486,7 +486,7 @@ export async function runLeadReplies(opts: RunOptions = {}): Promise<RunSummary>
     };
 
     // First vertical-aware branch of the reply agent: linkbuilding replies are
-    // a backlink negotiation (blurb + free Creator access, never money), not a
+    // a backlink negotiation (blurb + free Starter access, never money), not a
     // product sale. Everything else keeps the default playbook. Lookup failure
     // falls back to the default playbook, same behavior as before this branch.
     const systemPrompt = (await isLinkbuildingLead(leadEmail))

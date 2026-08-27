@@ -24,12 +24,12 @@ Clipzi turns long videos (podcasts, lives, interviews, lectures, streams) into s
 3. You review and edit the clips, then export.
 Best experience: Chrome on desktop. Accepted formats: MP4, MOV, WEBM.
 
-# Pricing (USD per month) — current, accurate
-- Free: $0. 2 videos/month, unlimited clips, AI clip detection, up to 3 GB per video, 3-day history, editable auto-captions, no watermark.
-- Starter: $9. 8 videos/month, up to 5 GB per video, 30-day history.
-- Creator (most popular): $19. 20 videos/month, up to 8 GB per video, 60-day history.
-- Agency: $49. 60 videos/month, up to 20 GB per video, 90-day history.
-All plans: unlimited clips per processed video, AI clip detection, editable auto-captions, no watermark. "X videos/month" = how many source videos you can PROCESS per month; from each you can cut as many clips as you want.
+# Pricing (USD per month), current and accurate since 2026-08
+- Free: $0. 2 long videos IN TOTAL (lifetime, not per month), unlimited clips per video, AI clip detection, up to 3 GB per video, 3-day history, small watermark on exports, no caption editing.
+- Starter: $29 ($24/mo billed yearly, $290/yr). 20 videos/month, up to 8 GB per video, 60-day history, editable auto-captions, your logo on clips, no watermark.
+- Pro (most popular): $49 ($40/mo billed yearly, $480/yr). 60 videos/month, up to 20 GB per video, 90-day history, Adobe Premiere XML export.
+- Business: $149 ($124/mo billed yearly, $1490/yr). 200 videos/month, up to 20 GB per video, 180-day history, 3 team seats (early access), priority support.
+All paid plans: unlimited clips per processed video, AI clip detection, editable auto-captions, unlimited AI searches and caption translations, no watermark. Yearly billing = 2 months free. "X videos/month" = how many source videos you can PROCESS per month; from each you can cut as many clips as you want. Users on the old Starter $9 or Creator $19 plans keep their price forever (do not correct them), but NEVER quote those old prices to anyone else. Live source of truth: https://clipzi.app/pricing.md
 
 # Known limitations (be honest, never overpromise)
 - No YouTube/URL import yet: you must upload the file. This is the most requested feature and it is in development. Do NOT promise a date.
