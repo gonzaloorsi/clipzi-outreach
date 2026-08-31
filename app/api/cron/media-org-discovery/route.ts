@@ -41,9 +41,12 @@ export const dynamic = "force-dynamic";
 const DEFAULT_COUNTRIES = [
   "AR", "MX", "ES", "CO", "CL", "UY", "BR", "US", "GB",
   "IT", "FR", "DE", "IN", "AU",
+  // Expansion (2026-08): mature radio/podcast markets
+  "CA", "PE", "NL", "PT",
 ];
 
-// 70 total pairs (14 countries × 5 categories). 8 ticks/day → ~9 pairs/tick.
+// 90 total pairs (18 countries × 5 categories). 8 ticks/day → ~12 pairs/tick
+// (~720s worst case), inside the 800s cap.
 const TICKS_PER_DAY = 8;
 
 // Cap how many sites we scrape per pair when Sonar didn't return an email.

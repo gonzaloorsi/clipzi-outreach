@@ -101,6 +101,17 @@ const COUNTRY_FULL_NAMES: Record<string, string> = {
   BR: "Brazil",
   US: "United States",
   GB: "United Kingdom",
+  // These were already in the route's DEFAULT_COUNTRIES but missing here, so
+  // prompts said "based in IT" and Sonar could misread the bare code.
+  IT: "Italy",
+  FR: "France",
+  DE: "Germany",
+  IN: "India",
+  AU: "Australia",
+  CA: "Canada",
+  PE: "Peru",
+  NL: "Netherlands",
+  PT: "Portugal",
 };
 
 const CATEGORY_LABEL: Record<MediaOrgCategory, string> = {

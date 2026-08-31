@@ -50,10 +50,13 @@ const DEFAULT_COUNTRIES = [
   "US", "GB", "AR", "ES", "MX", "BR", "CO", "CL", "UY", "AU", "CA",
   // Emerging
   "PE", "IE", "NZ", "IN", "FR", "DE", "IT", "NL", "ZA", "PH",
+  // Expansion (2026-08): strong wedding/event video markets
+  "PT", "BE", "CH", "AT", "PL", "JP", "KR",
 ];
 
-// 63 total tuples (21 countries × 3 = 1 individual + 2 org categories).
-// Spread across 8 ticks/day → ~8 tuples per tick, well inside the 800s cap.
+// 84 total tuples (28 countries × 3 = 1 individual + 2 org categories).
+// Spread across 8 ticks/day → ~11 tuples per tick (~660s worst case),
+// inside the 800s cap.
 const TICKS_PER_DAY = 8;
 
 // Cap how many sites we scrape per tuple when Sonar didn't return an email.

@@ -68,6 +68,13 @@ const COUNTRY_FULL_NAMES: Record<string, string> = {
   NL: "Netherlands",
   ZA: "South Africa",
   PH: "Philippines",
+  PT: "Portugal",
+  BE: "Belgium",
+  CH: "Switzerland",
+  AT: "Austria",
+  PL: "Poland",
+  JP: "Japan",
+  KR: "South Korea",
 };
 
 const ORG_CATEGORY_LABEL: Record<PhotographerOrgCategory, string> = {

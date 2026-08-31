@@ -62,12 +62,29 @@ const COUNTRY_FULL_NAMES: Record<string, string> = {
   NO: "Norway",
   FI: "Finland",
   IE: "Ireland",
+  BE: "Belgium",
+  CH: "Switzerland",
+  AT: "Austria",
+  PL: "Poland",
+  CZ: "Czech Republic",
+  GR: "Greece",
+  RO: "Romania",
+  TR: "Turkey",
+  // Middle East + Africa
+  AE: "United Arab Emirates",
+  IL: "Israel",
+  ZA: "South Africa",
   // Asia-Pacific
   IN: "India",
   AU: "Australia",
   NZ: "New Zealand",
   JP: "Japan",
   KR: "South Korea",
+  SG: "Singapore",
+  MY: "Malaysia",
+  PH: "Philippines",
+  TH: "Thailand",
+  ID: "Indonesia",
 };
 
 // Focus angles rotated daily by the route — same pattern as JOURNALIST_ANGLES
@@ -113,6 +130,15 @@ function buildPrompt(
       "events and experiential marketing agencies",
     "digital-transformation":
       "digital transformation and consulting agencies",
+    seo: "SEO and content marketing",
+    "social-video":
+      "social media video and short-form content (Reels, TikTok, Shorts)",
+    "podcast-production": "podcast production and audio content",
+    "web-design": "web design and development studios",
+    "media-buying": "media buying and planning",
+    "ecommerce-marketing": "e-commerce and marketplace marketing",
+    "sports-marketing": "sports and esports marketing",
+    "real-estate-marketing": "real estate marketing",
   };
   const label = categoryLabel[category] ?? category;
   const countryName = COUNTRY_FULL_NAMES[countryCode] ?? countryCode;

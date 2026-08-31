@@ -29,18 +29,24 @@ export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 // Configurable defaults — also accepted via query param overrides.
-// 30 countries × 10 categories = 300 pairs covered per day.
-// Each cron tick (4 per day, every 6 hours) processes 1/4 = 75 pairs.
-// Rotation is deterministic by UTC hour bucket so each pair runs ~daily.
+// 51 countries × 18 categories = 918-pair universe; a day-rotation window
+// covers PAIRS_PER_DAY (304) of them per day, so the full universe is visited
+// every ~3 days. Each cron tick (8 per day, every 3 hours) processes 1/8 of
+// the day's window (~38 pairs). Rotation is deterministic (day-of-year + UTC
+// hour bucket).
 const DEFAULT_COUNTRIES = [
   // LATAM
   "AR", "MX", "CO", "CL", "PE", "ES", "BR", "UY", "EC", "VE", "PY", "DO",
+  "BO", "CR", "PA", "GT", "PR",
   // North America + UK
   "US", "CA", "GB",
   // Europe
   "DE", "FR", "IT", "NL", "PT", "IE", "SE", "DK", "NO", "FI",
+  "BE", "CH", "AT", "PL", "CZ", "GR", "RO", "TR",
+  // Middle East + Africa
+  "AE", "IL", "ZA",
   // Asia-Pacific
-  "IN", "AU", "NZ", "JP", "KR",
+  "IN", "AU", "NZ", "JP", "KR", "SG", "MY", "PH", "TH", "ID",
 ];
 
 const DEFAULT_CATEGORIES = [
@@ -54,13 +60,28 @@ const DEFAULT_CATEGORIES = [
   "content-production",
   "events-experiential",
   "digital-transformation",
+  "seo",
+  "social-video",
+  "podcast-production",
+  "web-design",
+  "media-buying",
+  "ecommerce-marketing",
+  "sports-marketing",
+  "real-estate-marketing",
 ];
 
 // Slice rotation: with 8 ticks/day (every 3h at :30 — 00:30, 03:30, 06:30,
 // 09:30, 12:30, 15:30, 18:30, 21:30 UTC), each tick processes 1/8 of the
-// universe. With 300 pairs total → ~38 pairs/tick → ~5 min runtime, well
-// inside the 800s function cap. We had hit the cap with 75-pair slices.
+// day's budget (~38 pairs/tick → ~5 min runtime, well inside the 800s
+// function cap; we had hit the cap with 75-pair slices).
 const TICKS_PER_DAY = 8;
+
+// The universe (51 countries × 18 categories = 918 pairs) is bigger than one
+// day's budget, so a day-rotation window walks through it: each day covers a
+// different circular window of PAIRS_PER_DAY pairs, visiting the full universe
+// every ~3 days. Combined with the 7 daily AGENCY_ANGLES, an exact
+// (country, category, angle) query only repeats every ~21 days.
+const PAIRS_PER_DAY = 304; // 38 per tick × 8 ticks — sized to the 800s cap
 
 // Cap how many sites we scrape per pair when Sonar didn't return an email.
 // Without this, a pair where Sonar returns 15 entries with 10 missing emails
@@ -129,19 +150,32 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Slice rotation: divide pairs across TICKS_PER_DAY based on UTC hour.
+  // Day-of-year drives both the daily pair window and the angle rotation.
+  const now = new Date();
+  const dayOfYear = Math.floor(
+    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000,
+  );
+
+  // Rotation: pick today's circular window of PAIRS_PER_DAY pairs out of the
+  // full universe, then divide that window across TICKS_PER_DAY by UTC hour.
   // Skip rotation when a manual filter (?country=, ?category=, ?max=) is set —
   // those are explicit override modes for testing.
   const useRotation = !onlyCountry && !onlyCategory && !maxPairs;
   let pairs: Array<{ country: string; category: string }> = allPairs;
   let sliceInfo = `all ${allPairs.length} pairs`;
   if (useRotation) {
-    const utcHour = new Date().getUTCHours();
-    const bucket = Math.floor(utcHour / Math.ceil(24 / TICKS_PER_DAY)); // 0..3
-    const sliceSize = Math.ceil(allPairs.length / TICKS_PER_DAY);
+    const budget = Math.min(PAIRS_PER_DAY, allPairs.length);
+    const windowStart = (dayOfYear * budget) % allPairs.length;
+    const daily: Array<{ country: string; category: string }> = [];
+    for (let i = 0; i < budget; i++) {
+      daily.push(allPairs[(windowStart + i) % allPairs.length]);
+    }
+    const utcHour = now.getUTCHours();
+    const bucket = Math.floor(utcHour / Math.ceil(24 / TICKS_PER_DAY)); // 0..TICKS_PER_DAY-1
+    const sliceSize = Math.ceil(daily.length / TICKS_PER_DAY);
     const start = bucket * sliceSize;
-    pairs = allPairs.slice(start, start + sliceSize);
-    sliceInfo = `slice ${bucket + 1}/${TICKS_PER_DAY} (pairs ${start}..${start + pairs.length - 1} of ${allPairs.length})`;
+    pairs = daily.slice(start, start + sliceSize);
+    sliceInfo = `slice ${bucket + 1}/${TICKS_PER_DAY} of daily window ${windowStart}..${(windowStart + budget - 1) % allPairs.length} (universe ${allPairs.length} pairs)`;
   }
   if (maxPairs) pairs = pairs.slice(0, maxPairs);
 
@@ -169,14 +203,6 @@ export async function GET(req: NextRequest) {
   let totalInsertedNew = 0;
   let totalSeen = 0;
   let totalErrors = 0;
-
-  // Day-of-year for deterministic angle rotation — same pattern as
-  // journalist-discovery. Each pair gets a different focus every day; with 7
-  // angles, the same (country, category) cycles through all of them weekly.
-  const now = new Date();
-  const dayOfYear = Math.floor(
-    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000,
-  );
 
   try {
     for (let idx = 0; idx < pairs.length; idx++) {
