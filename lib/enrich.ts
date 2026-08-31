@@ -4,7 +4,11 @@
 import { sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { channels } from "../db/schema";
-import type { YouTubeClient, YtChannelsResult } from "./youtube";
+import type {
+  YouTubeClient,
+  YtChannelsResult,
+  YtPlaylistItemsResult,
+} from "./youtube";
 import { scoreChannel, meetsThreshold } from "./score";
 import { verifyEmailsBatch, isSafeToSend } from "./bouncer";
 
@@ -14,6 +18,37 @@ export function extractEmails(text: string | undefined | null): string[] {
   if (!text) return [];
   const matches = text.match(EMAIL_RE) ?? [];
   return [...new Set(matches.map((e) => e.toLowerCase()))];
+}
+
+// Second email source: the channel's video descriptions. Creators set their
+// contact email in the upload defaults, so it shows on every video even when
+// the channel description has none (the typical no_email case). The uploads
+// playlist id is derivable from the channel id (UC... -> UU...) with no extra
+// API call, and playlistItems.list costs 1 quota unit for up to 50 videos.
+// Same public-data-via-official-API posture as the channel description; the
+// captcha-gated business-inquiries email is deliberately not touched.
+export async function findEmailInVideos(
+  yt: YouTubeClient,
+  channelId: string,
+): Promise<string[]> {
+  if (!channelId.startsWith("UC")) return [];
+  const uploadsPlaylist = `UU${channelId.slice(2)}`;
+  let data: YtPlaylistItemsResult;
+  try {
+    data = await yt.call<YtPlaylistItemsResult>("playlistItems", {
+      part: "snippet",
+      playlistId: uploadsPlaylist,
+      maxResults: 50,
+    });
+  } catch {
+    // Playlist can 404 (no uploads, terminated channel) — treat as no email.
+    return [];
+  }
+  const emails = new Set<string>();
+  for (const it of data.items ?? []) {
+    for (const e of extractEmails(it.snippet?.description)) emails.add(e);
+  }
+  return [...emails];
 }
 
 export function cleanName(name: string): string {
@@ -55,6 +90,9 @@ export interface EnrichResult {
 export interface EnrichOptions {
   source?: string; // for discoveredVia attribution
   defaultLanguage?: string; // hint from upstream source
+  // Try the video-descriptions fallback (1 quota unit per no_email channel)
+  // before classifying a channel as no_email. Default true.
+  videoEmailRecovery?: boolean;
 }
 
 /**
@@ -127,6 +165,7 @@ export async function enrichChannels(
       status: "queued" | "no_email" | "low_quality";
       discoveredVia: string | null;
       lastRefreshedAt: Date;
+      videoEmailCheckedAt: Date | null;
     };
     const drafts: DraftRow[] = items.map((it) => {
       const subs = parseInt(it.statistics?.subscriberCount ?? "0", 10) || 0;
@@ -182,8 +221,32 @@ export async function enrichChannels(
         status,
         discoveredVia: opts.source ?? null,
         lastRefreshedAt: new Date(),
+        videoEmailCheckedAt: null,
       };
     });
+
+    // Video-descriptions fallback: before accepting no_email, spend 1 quota
+    // unit on the channel's uploads playlist. Recovered channels join the
+    // normal queued path (and the Bouncer gate below).
+    if (opts.videoEmailRecovery !== false) {
+      for (const d of drafts) {
+        if (d.status !== "no_email") continue;
+        const videoEmails = await findEmailInVideos(yt, d.id);
+        d.videoEmailCheckedAt = new Date();
+        if (videoEmails.length > 0) {
+          d.primaryEmail = videoEmails[0];
+          d.allEmails = videoEmails;
+          d.status = "queued";
+          d.score = scoreChannel({
+            subscribers: d.subscribers,
+            videoCount: d.videoCount,
+            topicCategories: d.topicCategories ?? [],
+            primaryEmail: d.primaryEmail,
+            country: d.country,
+          });
+        }
+      }
+    }
 
     // Tally PRE-Bouncer state (so we know what would have been queued).
     for (const d of drafts) {
@@ -232,6 +295,7 @@ export async function enrichChannels(
           score: sql`EXCLUDED.score`,
           status: sql`EXCLUDED.status`,
           lastRefreshedAt: sql`EXCLUDED.last_refreshed_at`,
+          videoEmailCheckedAt: sql`COALESCE(EXCLUDED.video_email_checked_at, channels.video_email_checked_at)`,
           updatedAt: sql`NOW()`,
         },
         setWhere: sql`channels.status NOT IN ('sent', 'bounced', 'complained', 'opted_out')`,

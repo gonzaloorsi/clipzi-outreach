@@ -30,6 +30,7 @@ export const QUOTA_COST = {
   channels: 1,
   commentThreads: 1,
   activities: 1,
+  playlistItems: 1,
 } as const;
 
 export class QuotaExceededError extends Error {
@@ -166,6 +167,17 @@ export interface YtChannelsResult {
       };
     };
   }>;
+}
+
+export interface YtPlaylistItemsResult {
+  items?: Array<{
+    snippet?: {
+      title?: string;
+      description?: string;
+      publishedAt?: string;
+    };
+  }>;
+  nextPageToken?: string;
 }
 
 export interface YtCommentThreadsResult {

@@ -91,6 +91,13 @@ export const channels = pgTable(
     personalizedOpener: text("personalized_opener"),
     personalizedAt: timestamp("personalized_at", { withTimezone: true }),
 
+    // When we last looked for an email in the channel's video descriptions
+    // (uploads playlist via the API). Set whether or not one was found, so the
+    // video-email-recovery cron never re-processes the same channel.
+    videoEmailCheckedAt: timestamp("video_email_checked_at", {
+      withTimezone: true,
+    }),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

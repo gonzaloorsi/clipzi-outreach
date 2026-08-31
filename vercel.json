@@ -38,6 +38,10 @@
       "schedule": "35 */3 * * *"
     },
     {
+      "path": "/api/cron/video-email-recovery",
+      "schedule": "10 */3 * * *"
+    },
+    {
       "path": "/api/cron/daily-report",
       "schedule": "0 0 * * *"
     }
@@ -74,6 +78,9 @@
       "maxDuration": 300
     },
     "app/api/cron/church-discovery/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/video-email-recovery/route.ts": {
       "maxDuration": 800
     },
     "app/api/cron/daily-report/route.ts": {
