@@ -18,6 +18,7 @@ import { channels, discoveryRuns } from "@/db/schema";
 import {
   searchAgencies,
   isPlaceholderEmail,
+  AGENCY_ANGLES,
   type AgencyResult,
 } from "@/lib/agency-search";
 import { fetchAgencyEmails } from "@/lib/agency-extract";
@@ -169,9 +170,19 @@ export async function GET(req: NextRequest) {
   let totalSeen = 0;
   let totalErrors = 0;
 
+  // Day-of-year for deterministic angle rotation — same pattern as
+  // journalist-discovery. Each pair gets a different focus every day; with 7
+  // angles, the same (country, category) cycles through all of them weekly.
+  const now = new Date();
+  const dayOfYear = Math.floor(
+    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000,
+  );
+
   try {
-    for (const { country, category } of pairs) {
-      const r = await runOnePair({ country, category, dryRun, log });
+    for (let idx = 0; idx < pairs.length; idx++) {
+      const { country, category } = pairs[idx];
+      const angle = AGENCY_ANGLES[(dayOfYear + idx) % AGENCY_ANGLES.length];
+      const r = await runOnePair({ country, category, angle, dryRun, log });
       allResults.push(r);
       totalInsertedNew += r.insertedNew;
       totalSeen += r.fromSonar;
@@ -223,11 +234,13 @@ export async function GET(req: NextRequest) {
 async function runOnePair({
   country,
   category,
+  angle,
   dryRun,
   log,
 }: {
   country: string;
   category: string;
+  angle?: string;
   dryRun: boolean;
   log: (s: string) => void;
 }): Promise<PairResult> {
@@ -244,12 +257,12 @@ async function runOnePair({
     errors: [],
   };
 
-  log(`pair: ${country} × ${category}`);
+  log(`pair: ${country} × ${category}${angle ? ` (angle: ${angle})` : ""}`);
 
   // 1. Sonar search
   let sonar;
   try {
-    sonar = await searchAgencies(country, category, { maxResults: 20 });
+    sonar = await searchAgencies(country, category, { maxResults: 20, angle });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     result.errors.push(`sonar: ${msg.slice(0, 150)}`);

@@ -13,7 +13,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { sendDailyDigest, type DailyDigestRow } from "@/lib/report";
+import {
+  sendDailyDigest,
+  sendCronFailureAlert,
+  type DailyDigestRow,
+} from "@/lib/report";
 import { getKPIs, getSenderPool } from "@/lib/insights";
 import { detectKind } from "@/lib/templates";
 
@@ -191,6 +195,7 @@ export async function GET(req: NextRequest) {
     const msg = e instanceof Error ? e.message : String(e);
     const stack = e instanceof Error ? e.stack : undefined;
     log(`ERROR: ${msg}`);
+    await sendCronFailureAlert("daily-report", msg);
     return NextResponse.json(
       {
         ok: false,

@@ -300,6 +300,48 @@ function buildDailyDigestHtml(input: DailyDigestInput): string {
   </div>`;
 }
 
+/**
+ * Failure alert for crons. Deliberately DB-free: the most likely failure is
+ * the database itself being unreachable (the Aug 2026 Neon quota outage went
+ * unnoticed for 3 days because every signal, digest included, needed the DB).
+ * Resend's idempotency key caps it at one alert per cron per 6h window.
+ */
+export async function sendCronFailureAlert(
+  cronName: string,
+  errorMsg: string,
+): Promise<void> {
+  const recipient = process.env.REPORT_EMAIL || "gonzaloorsi@gmail.com";
+  const fromEmail =
+    process.env.REPORT_FROM_EMAIL ||
+    process.env.SENDER_EMAIL_1 ||
+    process.env.SENDER_EMAIL ||
+    "";
+  if (!fromEmail) return;
+
+  const now = new Date();
+  const bucket = `${now.toISOString().slice(0, 10)}-${Math.floor(now.getUTCHours() / 6)}`;
+  try {
+    await client().emails.send(
+      {
+        from: `Clipzi Outreach Bot <${fromEmail}>`,
+        to: [recipient],
+        replyTo: fromEmail,
+        subject: `⚠️ Clipzi outreach: cron ${cronName} está fallando`,
+        text: [
+          `El cron ${cronName} tiró error a las ${now.toISOString()}.`,
+          ``,
+          `Error: ${errorMsg.slice(0, 500)}`,
+          ``,
+          `Máximo un aviso cada 6 horas por cron. Si esto sigue llegando, los envíos están frenados.`,
+        ].join("\n"),
+      },
+      { idempotencyKey: `cron-fail/${cronName}/${bucket}` },
+    );
+  } catch {
+    // best effort — never let the alert mask the original failure
+  }
+}
+
 export async function sendDailyDigest(input: DailyDigestInput): Promise<{
   ok: boolean;
   messageId?: string;

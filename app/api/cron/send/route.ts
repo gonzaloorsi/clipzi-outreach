@@ -28,7 +28,7 @@ import {
   getTotalDailyCapacity,
 } from "@/lib/sender-pool";
 import { activeCountries, parseSendWindow } from "@/lib/timezone";
-import type { ReportSendResult } from "@/lib/report";
+import { sendCronFailureAlert, type ReportSendResult } from "@/lib/report";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -680,6 +680,7 @@ export async function GET(req: NextRequest) {
     const msg = e instanceof Error ? e.message : String(e);
     const stack = e instanceof Error ? e.stack : undefined;
     log(`ERROR: ${msg}`);
+    await sendCronFailureAlert("send", msg);
     return NextResponse.json(
       {
         ok: false,

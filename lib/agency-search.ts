@@ -70,12 +70,32 @@ const COUNTRY_FULL_NAMES: Record<string, string> = {
   KR: "South Korea",
 };
 
+// Focus angles rotated daily by the route — same pattern as JOURNALIST_ANGLES
+// in lib/journalist-search.ts. Without an angle, Sonar keeps returning the same
+// top-of-mind agencies per (country, category) and net-new yield decays; each
+// angle biases toward a different cluster, so the same pair keeps producing
+// fresh domains. With 7 angles, a pair cycles through all of them in a week.
+export const AGENCY_ANGLES: string[] = [
+  "well-established market leaders",
+  "boutique or independent shops with small teams (under ~20 people)",
+  "founded in the last 5 years, up-and-coming",
+  "headquartered outside the capital, in secondary cities",
+  "serving e-commerce and direct-to-consumer brands",
+  "serving B2B, SaaS and tech clients",
+  "with in-house video, podcast or social content production",
+];
+
 /**
  * Build a JSON-mode prompt asking Sonar for agencies in a country/category.
  * Output schema: array of {name, website, email, city}. Email is optional —
  * we'll fall back to scraping the website when Sonar didn't surface one.
  */
-function buildPrompt(countryCode: string, category: string, n = 20): string {
+function buildPrompt(
+  countryCode: string,
+  category: string,
+  n = 20,
+  angle?: string,
+): string {
   const categoryLabel: Record<string, string> = {
     marketing: "marketing and digital marketing",
     communication: "communication, PR, and press relations",
@@ -96,7 +116,8 @@ function buildPrompt(countryCode: string, category: string, n = 20): string {
   };
   const label = categoryLabel[category] ?? category;
   const countryName = COUNTRY_FULL_NAMES[countryCode] ?? countryCode;
-  return `List ${n} ${label} agencies headquartered in ${countryName} (the country, not a US state or region) that publicly list a contact email on their own website.
+  const angleLine = angle ? ` Focus specifically on agencies that are ${angle}.` : "";
+  return `List ${n} ${label} agencies headquartered in ${countryName} (the country, not a US state or region) that publicly list a contact email on their own website.${angleLine}
 
 Return ONLY a JSON object with this exact shape:
 {
@@ -120,12 +141,17 @@ Strict rules:
 export async function searchAgencies(
   country: string,
   category: string,
-  options: { maxResults?: number } = {},
+  options: { maxResults?: number; angle?: string } = {},
 ): Promise<SonarSearchResult> {
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error("AI_GATEWAY_API_KEY not set");
   }
-  const prompt = buildPrompt(country, category, options.maxResults ?? 20);
+  const prompt = buildPrompt(
+    country,
+    category,
+    options.maxResults ?? 20,
+    options.angle,
+  );
 
   const res = await fetch(AI_GATEWAY_URL, {
     method: "POST",

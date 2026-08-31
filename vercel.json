@@ -34,14 +34,6 @@
       "schedule": "55 */3 * * *"
     },
     {
-      "path": "/api/cron/linkbuilding-discovery",
-      "schedule": "25 */3 * * *"
-    },
-    {
-      "path": "/api/cron/linkbuilding-followup",
-      "schedule": "42 * * * *"
-    },
-    {
       "path": "/api/cron/church-discovery",
       "schedule": "35 */3 * * *"
     },
