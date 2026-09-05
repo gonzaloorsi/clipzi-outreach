@@ -29,6 +29,9 @@ import {
 } from "@/lib/sender-pool";
 import { activeCountries, parseSendWindow } from "@/lib/timezone";
 import { sendCronFailureAlert, type ReportSendResult } from "@/lib/report";
+import { formatMmss } from "@/lib/heatmap";
+import { fetchFrameAttachment } from "@/lib/frames";
+import { pickTemplate, type HotInput, type TemplateKind } from "@/lib/templates";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -44,6 +47,38 @@ function isAuthorized(req: NextRequest): boolean {
 }
 
 const SEND_DELAY_MS = 200; // pacing between sends; Resend rate-limits at ~10/s
+
+// sends.template_id: v1_<kind>_<lang> for the legacy templates, v2_hot_<lang> /
+// v2_question_<lang> for the YouTube v2 arm. The A/B readout groups on this.
+function templateIdFor(kind: TemplateKind, language: string): string {
+  if (kind === "youtube-hot") return `v2_hot_${language}`;
+  if (kind === "youtube-question") return `v2_question_${language}`;
+  return `v1_${kind.replace(/-/g, "_")}_${language}`;
+}
+
+// channels.hot_* → template input. Null when the enrich found nothing (the
+// template router then serves youtube-question in the v2 arm).
+function hotInputFor(c: {
+  hotSource: string | null;
+  hotVideoTitle: string | null;
+  hotStartS: number | null;
+  hotStart2S: number | null;
+  hotLabel: string | null;
+  hotPerMonth: number | null;
+  hotAvgMinutes: number | null;
+}): HotInput | null {
+  if (!c.hotSource || !c.hotVideoTitle) return null;
+  if (c.hotSource !== "heatmap" && c.hotSource !== "top_comment" && c.hotSource !== "cadence") return null;
+  return {
+    source: c.hotSource,
+    videoTitle: c.hotVideoTitle,
+    mmss: c.hotStartS != null ? formatMmss(c.hotStartS) : null,
+    mmss2: c.hotStart2S != null ? formatMmss(c.hotStart2S) : null,
+    label: c.hotLabel,
+    perMonth: c.hotPerMonth,
+    avgMinutes: c.hotAvgMinutes,
+  };
+}
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
@@ -174,9 +209,11 @@ export async function GET(req: NextRequest) {
     // creators = remainder.
     // Ratios clamped 0-100 each. If their sum exceeds 100 we proportionally
     // scale the slot ratios so creators get at least 0.
+    // Agencies default to 0 since 2026-09: 108k sends, 1.2 replies/1000, 5
+    // trial codes. Re-enable via AGENCY_SEND_RATIO once the copy is reworked.
     const agencyPctRaw = Math.max(
       0,
-      Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "20")),
+      Math.min(100, Number(process.env.AGENCY_SEND_RATIO ?? "0")),
     );
     const standupPctRaw = Math.max(
       0,
@@ -290,6 +327,16 @@ export async function GET(req: NextRequest) {
       // Linkbuilding repurposes topicCategories as [articleUrl] for
       // per-article personalization. null/YT topic URIs are ignored below.
       topicCategories: channels.topicCategories,
+      // "Most replayed" enrich for the YouTube v2 templates.
+      hotSource: channels.hotSource,
+      hotVideoId: channels.hotVideoId,
+      hotVideoTitle: channels.hotVideoTitle,
+      hotStartS: channels.hotStartS,
+      hotStart2S: channels.hotStart2S,
+      hotLabel: channels.hotLabel,
+      hotPerMonth: channels.hotPerMonth,
+      hotAvgMinutes: channels.hotAvgMinutes,
+      hotPublishedAt: channels.hotPublishedAt,
     };
 
     // Human-readable article reference for linkbuilding rows: strip protocol,
@@ -317,12 +364,18 @@ export async function GET(req: NextRequest) {
       linkbuildingPool,
       churchPool,
     ] = await Promise.all([
+      // Creators: rows with a hot moment go first, freshest upload first (the
+      // email lands within 48h of the video when possible), then score.
       creatorTarget > 0
         ? db
             .select(selectFields)
             .from(channels)
             .where(and(...whereClauses, isCreatorExpr))
-            .orderBy(desc(channels.score))
+            .orderBy(
+              sql`(${channels.hotSource} IS NOT NULL) DESC`,
+              sql`${channels.hotPublishedAt} DESC NULLS LAST`,
+              desc(channels.score),
+            )
             .limit(creatorTarget)
         : Promise.resolve([]),
       agencyTarget > 0
@@ -404,10 +457,14 @@ export async function GET(req: NextRequest) {
     const shortage = max - candidates.length;
     if (shortage > 0) {
       const usedIds = new Set(candidates.map((c) => c.id));
+      // A vertical whose ratio is 0 is switched off on purpose (agencies since
+      // 2026-09): it must not sneak back in through the backfill either.
+      const backfillExclusions = [sql`NOT ${isLinkbuildingExpr}`];
+      if (agencyTarget === 0) backfillExclusions.push(sql`NOT ${isAgencyExpr}`);
       const overfetch = await db
         .select(selectFields)
         .from(channels)
-        .where(and(...whereClauses, sql`NOT ${isLinkbuildingExpr}`))
+        .where(and(...whereClauses, ...backfillExclusions))
         .orderBy(desc(channels.score))
         .limit((shortage + candidates.length) * 2);
       const backfill = overfetch
@@ -499,6 +556,14 @@ export async function GET(req: NextRequest) {
       // Our own Message-ID so follow-up bumps can thread under this email.
       const rfcMessageId = `<${crypto.randomUUID()}@${sender.email.split("@")[1]}>`;
 
+      // youtube-hot emails carry the still of the peak (rendered by Modal into
+      // R2 when hot-moments ran). Missing frame = the email goes out without it.
+      const hot = hotInputFor(c);
+      const kindPreview = pickTemplate({ id: c.id, country: c.country, language: c.language, discoveredVia: c.discoveredVia, hotSource: c.hotSource }).kind;
+      const frame = kindPreview === "youtube-hot" && c.hotSource === "heatmap" && c.hotVideoId && c.hotStartS != null
+        ? await fetchFrameAttachment(c.hotVideoId, c.hotStartS)
+        : null;
+
       const res = await sendEmail({
         to: email,
         channelName,
@@ -508,6 +573,9 @@ export async function GET(req: NextRequest) {
         language: c.language ?? null,
         discoveredVia: c.discoveredVia ?? null,
         article: articleRef(c),
+        channelId: c.id,
+        hot,
+        ...(frame ? { attachments: [frame] } : {}),
         rfcMessageId,
         // Deliverability defaults — discovered via GMass + GlockApps testing.
         // Plain text + lowercase subject lands in Inbox where HTML + Title Case
@@ -537,7 +605,7 @@ export async function GET(req: NextRequest) {
               rfcMessageId,
               sentAt: new Date(),
               language: res.language,
-              templateId: `v1_${res.kind.replace(/-/g, "_")}_${res.language}`,
+              templateId: templateIdFor(res.kind, res.language),
             })
             .onConflictDoNothing()
             .returning({ id: sends.id });
@@ -595,7 +663,7 @@ export async function GET(req: NextRequest) {
               status: "failed",
               errorMessage: res.error,
               language: res.language,
-              templateId: `v1_${res.kind.replace(/-/g, "_")}_${res.language}`,
+              templateId: templateIdFor(res.kind, res.language),
             })
             .onConflictDoNothing();
         } catch {

@@ -7,7 +7,8 @@
 
 import { Resend } from "resend";
 import { pickTemplateFromDb } from "./templates";
-import type { SupportedLanguage, TemplateKind } from "./templates";
+import type { SupportedLanguage, TemplateKind, HotInput } from "./templates";
+import type { EmailAttachment } from "./frames";
 
 let _client: Resend | null = null;
 function client(): Resend {
@@ -31,6 +32,14 @@ export interface SendEmailParams {
   discoveredVia?: string | null;
   // Human-readable article reference for linkbuilding personalization
   article?: string | null;
+  // Channel id: drives the v1/v2 A/B arm for YouTube creators.
+  channelId?: string | null;
+  // "Most replayed" hook for the youtube-hot templates (lib/heatmap.ts).
+  hot?: HotInput | null;
+  // Plain attachments (the v2 frame). The email stays text/plain + attachment,
+  // never HTML: that combination landed in Updates on GMass, HTML landed in
+  // Promotions.
+  attachments?: EmailAttachment[];
   // RFC 5322 Message-ID to set on the outgoing mail ("<uuid@sender-domain>").
   // Stored on the sends row so follow-ups can thread via In-Reply-To.
   rfcMessageId?: string;
@@ -59,14 +68,19 @@ export async function buildEmail(params: SendEmailParams): Promise<{
   isAgency: boolean;
 }> {
   const { builder, language, kind, isAgency } = await pickTemplateFromDb({
+    id: params.channelId ?? null,
     country: params.country,
     language: params.language,
     discoveredVia: params.discoveredVia ?? null,
+    hotSource: params.hot?.source ?? null,
   });
   const { subject, html } = builder({
     channelName: params.channelName,
     fromName: params.fromName,
+    toEmail: params.to,
+    country: params.country,
     ...(params.article ? { article: params.article } : {}),
+    ...(params.hot ? { hot: params.hot } : {}),
   });
   return { subject, html, language, kind, isAgency };
 }
@@ -129,6 +143,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       subject,
       text: bodyText,
       ...(params.rfcMessageId ? { headers: { "Message-ID": params.rfcMessageId } } : {}),
+      ...(params.attachments?.length ? { attachments: params.attachments } : {}),
     });
     if (error) {
       return {

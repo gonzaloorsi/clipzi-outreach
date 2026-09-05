@@ -44,6 +44,14 @@
     {
       "path": "/api/cron/daily-report",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/hot-moments",
+      "schedule": "59 * * * *"
+    },
+    {
+      "path": "/api/cron/youtube-followup",
+      "schedule": "29 * * * *"
     }
   ],
   "functions": {
@@ -85,6 +93,12 @@
     },
     "app/api/cron/daily-report/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/hot-moments/route.ts": {
+      "maxDuration": 800
+    },
+    "app/api/cron/youtube-followup/route.ts": {
+      "maxDuration": 300
     }
   }
 }

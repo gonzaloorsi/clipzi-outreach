@@ -128,9 +128,16 @@ export interface YtVideosResult {
       channelId?: string;
       channelTitle?: string;
       title?: string;
+      description?: string;
+      publishedAt?: string;
       categoryId?: string;
       defaultLanguage?: string;
       defaultAudioLanguage?: string;
+    };
+    // part=contentDetails: ISO 8601 duration ("PT1H2M3S"). Used by the
+    // hot-moments enrich to pick the channel's latest long video.
+    contentDetails?: {
+      duration?: string;
     };
     statistics?: {
       viewCount?: string;
@@ -175,7 +182,9 @@ export interface YtPlaylistItemsResult {
       title?: string;
       description?: string;
       publishedAt?: string;
+      resourceId?: { videoId?: string };
     };
+    contentDetails?: { videoId?: string };
   }>;
   nextPageToken?: string;
 }
@@ -187,6 +196,9 @@ export interface YtCommentThreadsResult {
         snippet?: {
           authorChannelId?: { value?: string };
           authorDisplayName?: string;
+          textOriginal?: string;
+          textDisplay?: string;
+          likeCount?: number;
         };
       };
     };

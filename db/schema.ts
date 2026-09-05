@@ -98,6 +98,23 @@ export const channels = pgTable(
       withTimezone: true,
     }),
 
+    // "Most replayed" enrich (lib/heatmap.ts), computed by the hot-moments
+    // cron for queued YouTube channels right before they are emailed. The v2
+    // templates read these; hot_source NULL after hot_checked_at means no
+    // usable hook (no long uploads, flat heatmap, no comments) and the row
+    // falls back to the question template.
+    hotVideoId: text("hot_video_id"),
+    hotVideoTitle: text("hot_video_title"),
+    hotVideoDurationS: integer("hot_video_duration_s"),
+    hotPublishedAt: timestamp("hot_published_at", { withTimezone: true }),
+    hotStartS: integer("hot_start_s"),
+    hotStart2S: integer("hot_start_2_s"),
+    hotLabel: text("hot_label"), // chapter title at the peak, or the top comment
+    hotSource: text("hot_source"), // 'heatmap' | 'top_comment' | 'cadence'
+    hotPerMonth: integer("hot_per_month"),
+    hotAvgMinutes: integer("hot_avg_minutes"),
+    hotCheckedAt: timestamp("hot_checked_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -114,6 +131,7 @@ export const channels = pgTable(
     // lives on sends.email UNIQUE — that's where it belongs.
     primaryEmailIdx: index("channels_primary_email_idx").on(t.primaryEmail),
     lastRefreshedIdx: index("channels_last_refreshed_idx").on(t.lastRefreshedAt),
+    hotCheckedIdx: index("channels_hot_checked_idx").on(t.hotCheckedAt),
   }),
 );
 
@@ -239,6 +257,9 @@ export const followups = pgTable(
     sendId: uuid("send_id")
       .notNull()
       .references(() => sends.id, { onDelete: "cascade" }),
+    // 'bump' (day 4 to 10) or 'close' (day 10 to 20, the break-up line). One
+    // row per (send, kind): the YouTube v2 sequence is exactly two touches.
+    kind: text("kind").notNull().default("bump"),
     espMessageId: text("esp_message_id"),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -246,7 +267,7 @@ export const followups = pgTable(
       .defaultNow(),
   },
   (t) => ({
-    sendUq: uniqueIndex("followups_send_id_uq").on(t.sendId),
+    sendKindUq: uniqueIndex("followups_send_id_kind_uq").on(t.sendId, t.kind),
     sentAtIdx: index("followups_sent_at_idx").on(t.sentAt),
   }),
 );

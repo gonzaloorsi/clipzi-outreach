@@ -53,6 +53,12 @@ import { build as linkbuildingFr } from "./linkbuilding-fr";
 import { build as churchEs } from "./church-es";
 import { build as churchPt } from "./church-pt";
 import { build as churchEn } from "./church-en";
+import { build as youtubeHotEs } from "./youtube-hot-es";
+import { build as youtubeHotEn } from "./youtube-hot-en";
+import { build as youtubeHotPt } from "./youtube-hot-pt";
+import { build as youtubeQuestionEs } from "./youtube-question-es";
+import { build as youtubeQuestionEn } from "./youtube-question-en";
+import { build as youtubeQuestionPt } from "./youtube-question-pt";
 
 const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "creator-en": creatorEn,
@@ -92,6 +98,12 @@ const CODE_BUILDERS: Record<string, TemplateBuilder> = {
   "church-es": churchEs,
   "church-pt": churchPt,
   "church-en": churchEn,
+  "youtube-hot-es": youtubeHotEs,
+  "youtube-hot-en": youtubeHotEn,
+  "youtube-hot-pt": youtubeHotPt,
+  "youtube-question-es": youtubeQuestionEs,
+  "youtube-question-en": youtubeQuestionEn,
+  "youtube-question-pt": youtubeQuestionPt,
 };
 
 export interface TemplateRow {
@@ -116,6 +128,15 @@ function buildFromStrings(subject: string, html: string): TemplateBuilder {
         // {article} interpolates to empty when the row has no article URL, so
         // DB-edited templates must phrase around it or accept the gap.
         if (key === "article") return input.article ? esc(input.article) : "";
+        // Hot-moment fields (youtube-hot). DB-edited copies are linear text, so
+        // they cannot express the per-source branches of the code builders;
+        // missing values interpolate to empty and the copy must read around it.
+        if (key === "hotVideoTitle") return input.hot?.videoTitle ? esc(input.hot.videoTitle) : "";
+        if (key === "hotMmss") return input.hot?.mmss ?? "";
+        if (key === "hotMmss2") return input.hot?.mmss2 ?? "";
+        if (key === "hotLabel") return input.hot?.label ? esc(input.hot.label) : "";
+        if (key === "hotPerMonth") return input.hot?.perMonth != null ? String(input.hot.perMonth) : "";
+        if (key === "hotAvgMinutes") return input.hot?.avgMinutes != null ? String(input.hot.avgMinutes) : "";
         return `{${key}}`;
       });
     return {
@@ -156,13 +177,26 @@ export async function loadTemplateRow(key: string): Promise<TemplateRow | null> 
   const rendered = builder({
     channelName: "__CHANNEL_NAME_SENTINEL__",
     fromName: "__FROM_NAME_SENTINEL__",
+    // youtube-hot builders branch on the source; the dashboard preview shows
+    // the heatmap branch with its placeholders.
+    hot: {
+      source: "heatmap",
+      videoTitle: "__HOT_TITLE_SENTINEL__",
+      mmss: "__HOT_MMSS_SENTINEL__",
+      mmss2: "__HOT_MMSS2_SENTINEL__",
+      label: "__HOT_LABEL_SENTINEL__",
+    },
   });
-  const subject = rendered.subject
-    .replace(/__CHANNEL_NAME_SENTINEL__/g, "{channelName}")
-    .replace(/__FROM_NAME_SENTINEL__/g, "{fromName}");
-  const html = rendered.html
-    .replace(/__CHANNEL_NAME_SENTINEL__/g, "{channelName}")
-    .replace(/__FROM_NAME_SENTINEL__/g, "{fromName}");
+  const unsentinel = (text: string) =>
+    text
+      .replace(/__CHANNEL_NAME_SENTINEL__/g, "{channelName}")
+      .replace(/__FROM_NAME_SENTINEL__/g, "{fromName}")
+      .replace(/__HOT_TITLE_SENTINEL__/g, "{hotVideoTitle}")
+      .replace(/__HOT_MMSS_SENTINEL__/g, "{hotMmss}")
+      .replace(/__HOT_MMSS2_SENTINEL__/g, "{hotMmss2}")
+      .replace(/__HOT_LABEL_SENTINEL__/g, "{hotLabel}");
+  const subject = unsentinel(rendered.subject);
+  const html = unsentinel(rendered.html);
   return { key, subject, html, source: "code" };
 }
 

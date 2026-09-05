@@ -61,6 +61,16 @@ import { build as buildLinkbuildingFr } from "./linkbuilding-fr";
 import { build as buildChurchEs } from "./church-es";
 import { build as buildChurchPt } from "./church-pt";
 import { build as buildChurchEn } from "./church-en";
+// YouTube v2 — the "most replayed" hook (lib/heatmap.ts) and its no-data
+// fallback, a one-word question. Creators only; A/B against creator-* (v1) by
+// channel id hash (see resolveCreatorVariant).
+import { build as buildYoutubeHotEs } from "./youtube-hot-es";
+import { build as buildYoutubeHotEn } from "./youtube-hot-en";
+import { build as buildYoutubeHotPt } from "./youtube-hot-pt";
+import { build as buildYoutubeQuestionEs } from "./youtube-question-es";
+import { build as buildYoutubeQuestionEn } from "./youtube-question-en";
+import { build as buildYoutubeQuestionPt } from "./youtube-question-pt";
+import { createHash } from "crypto";
 
 const CREATOR_TEMPLATES: Record<SupportedLanguage, TemplateBuilder> = {
   en: buildEn,
@@ -130,6 +140,18 @@ const CHURCH_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
   es: buildChurchEs,
   pt: buildChurchPt,
   en: buildChurchEn,
+};
+
+const YOUTUBE_HOT_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  es: buildYoutubeHotEs,
+  en: buildYoutubeHotEn,
+  pt: buildYoutubeHotPt,
+};
+
+const YOUTUBE_QUESTION_TEMPLATES: Partial<Record<SupportedLanguage, TemplateBuilder>> = {
+  es: buildYoutubeQuestionEs,
+  en: buildYoutubeQuestionEn,
+  pt: buildYoutubeQuestionPt,
 };
 
 // ISO 3166-1 alpha-2 country code → primary language for our outreach purposes.
@@ -259,7 +281,52 @@ export type TemplateKind =
   | "photographer-individual"
   | "photographer-org"
   | "linkbuilding"
-  | "church";
+  | "church"
+  | "youtube-hot"
+  | "youtube-question";
+
+// Share of YouTube creators that get the v2 templates instead of creator-*
+// (v1). 50 = A/B 50/50; 100 = v2 for everyone; 0 = v1 only. Assignment is a
+// stable hash of the channel id so a channel never flips between arms.
+export function youtubeV2RatioPct(): number {
+  const raw = Number(process.env.YOUTUBE_V2_RATIO ?? "100");
+  if (!Number.isFinite(raw)) return 100;
+  return Math.max(0, Math.min(100, raw));
+}
+
+export function inYoutubeV2Arm(channelId: string, ratioPct = youtubeV2RatioPct()): boolean {
+  if (ratioPct <= 0) return false;
+  if (ratioPct >= 100) return true;
+  const h = parseInt(createHash("sha256").update(`ytv2:${channelId}`).digest("hex").slice(0, 8), 16);
+  return h % 100 < ratioPct;
+}
+
+// The v2 templates exist in these languages only. A German or French channel
+// must keep its v1 creator template (which exists in de/fr) rather than get an
+// English v2, so the arm is gated on language as well as on the id hash.
+const YOUTUBE_V2_LANGS: ReadonlySet<SupportedLanguage> = new Set(["es", "en", "pt"]);
+
+/**
+ * Creators split three ways: v1 (control), youtube-hot (hot_source present)
+ * or youtube-question (v2 arm, no personalization data). Only real YouTube
+ * channels (UC ids) in a v2 language enter the arm; legacy/sonar creator rows
+ * and de/fr channels stay on v1.
+ */
+export function resolveCreatorVariant(
+  channel: {
+    id?: string | null;
+    discoveredVia?: string | null;
+    hotSource?: string | null;
+  },
+  language: SupportedLanguage,
+): TemplateKind {
+  const base = detectKind(channel.discoveredVia);
+  if (base !== "creator") return base;
+  if (!channel.id || !channel.id.startsWith("UC")) return "creator";
+  if (!YOUTUBE_V2_LANGS.has(language)) return "creator";
+  if (!inYoutubeV2Arm(channel.id)) return "creator";
+  return channel.hotSource ? "youtube-hot" : "youtube-question";
+}
 
 export function detectKind(discoveredVia: string | null | undefined): TemplateKind {
   if (isLinkbuilding(discoveredVia)) return "linkbuilding";
@@ -340,6 +407,18 @@ function builderForKind(
         AGENCY_TEMPLATES.en ??
         CREATOR_TEMPLATES.en
       );
+    case "youtube-hot":
+      return (
+        YOUTUBE_HOT_TEMPLATES[language] ??
+        YOUTUBE_HOT_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
+    case "youtube-question":
+      return (
+        YOUTUBE_QUESTION_TEMPLATES[language] ??
+        YOUTUBE_QUESTION_TEMPLATES.en ??
+        CREATOR_TEMPLATES.en
+      );
     case "creator":
     default:
       return CREATOR_TEMPLATES[language] ?? CREATOR_TEMPLATES.en;
@@ -355,9 +434,11 @@ function builderForKind(
  * the DB lookup is too expensive (e.g. tight loops, tests).
  */
 export function pickTemplate(channel: {
+  id?: string | null;
   country?: string | null;
   language?: string | null;
   discoveredVia?: string | null;
+  hotSource?: string | null;
 }): {
   builder: TemplateBuilder;
   language: SupportedLanguage;
@@ -365,7 +446,7 @@ export function pickTemplate(channel: {
   isAgency: boolean;
 } {
   const language = detectLanguage(channel.country, channel.language);
-  const kind = detectKind(channel.discoveredVia);
+  const kind = resolveCreatorVariant(channel, language);
   const builder = builderForKind(kind, language);
   return { builder, language, kind, isAgency: kind === "agency" };
 }
@@ -376,9 +457,11 @@ export function pickTemplate(channel: {
  * without redeploying.
  */
 export async function pickTemplateFromDb(channel: {
+  id?: string | null;
   country?: string | null;
   language?: string | null;
   discoveredVia?: string | null;
+  hotSource?: string | null;
 }): Promise<{
   builder: TemplateBuilder;
   language: SupportedLanguage;
@@ -391,7 +474,7 @@ export async function pickTemplateFromDb(channel: {
   const { loadTemplateBuilder } = await import("./db-loader");
 
   const language = detectLanguage(channel.country, channel.language);
-  const kind = detectKind(channel.discoveredVia);
+  const kind = resolveCreatorVariant(channel, language);
   const desiredKey = `${kind}-${language}`;
   const fallbackKey = `${kind}-en`;
 
@@ -409,4 +492,4 @@ export async function pickTemplateFromDb(channel: {
   };
 }
 
-export type { SupportedLanguage, TemplateInput, TemplateOutput, TemplateBuilder } from "./types";
+export type { SupportedLanguage, TemplateInput, TemplateOutput, TemplateBuilder, HotInput } from "./types";
