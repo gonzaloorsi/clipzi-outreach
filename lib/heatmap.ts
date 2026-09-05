@@ -157,6 +157,8 @@ export async function fetchHeatmap(
  * `flatShare` of the markers sit above 0.5 the audience is not rewinding
  * anywhere in particular, and naming a second would be a lie).
  */
+const INTRO_SKIP_S = 15;
+
 export function pickHotWindows(
   markers: HeatmapMarker[],
   opts: { topPct?: number; maxWindows?: number; flatShare?: number } = {},
@@ -170,7 +172,11 @@ export function pickHotWindows(
 
   const sorted = [...markers].sort((a, b) => b.intensity - a.intensity);
   const threshold = sorted[Math.max(0, Math.floor(markers.length * topPct) - 1)].intensity;
-  const hot = markers.filter((m) => m.intensity >= threshold).sort((a, b) => a.startS - b.startS);
+  // The first seconds always spike (everyone watches the start); that is not
+  // a moment worth quoting, so windows opening inside the intro are dropped.
+  const hot = markers
+    .filter((m) => m.intensity >= threshold && m.startS >= INTRO_SKIP_S)
+    .sort((a, b) => a.startS - b.startS);
 
   const windows: HotWindow[] = [];
   for (const m of hot) {

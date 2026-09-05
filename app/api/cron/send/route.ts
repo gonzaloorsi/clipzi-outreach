@@ -364,8 +364,10 @@ export async function GET(req: NextRequest) {
       linkbuildingPool,
       churchPool,
     ] = await Promise.all([
-      // Creators: rows with a hot moment go first, freshest upload first (the
-      // email lands within 48h of the video when possible), then score.
+      // Creators: rows with a hot moment go first, then rows the hot-moments
+      // cron already looked at (so unenriched YouTube channels wait for their
+      // turn instead of getting the question template), freshest upload first
+      // (the email lands within 48h of the video when possible), then score.
       creatorTarget > 0
         ? db
             .select(selectFields)
@@ -373,6 +375,7 @@ export async function GET(req: NextRequest) {
             .where(and(...whereClauses, isCreatorExpr))
             .orderBy(
               sql`(${channels.hotSource} IS NOT NULL) DESC`,
+              sql`(${channels.hotCheckedAt} IS NOT NULL) DESC`,
               sql`${channels.hotPublishedAt} DESC NULLS LAST`,
               desc(channels.score),
             )
