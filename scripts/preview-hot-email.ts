@@ -11,7 +11,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { YouTubeClient } from "../lib/youtube";
-import { computeHotMoment, fetchHeatmap, pickHotWindows, parseChapters, labelMoment, formatMmss } from "../lib/heatmap";
+import { computeHotMoment, fetchHeatmapData, pickHotWindows, parseChapters, labelMoment, formatMmss } from "../lib/heatmap";
 import type { HotMoment } from "../lib/heatmap";
 import { htmlToPlainText } from "../lib/email";
 import { build as hotEs } from "../lib/templates/youtube-hot-es";
@@ -55,8 +55,9 @@ if (isVideo) {
     item = { snippet: { title: o.title, description: "", publishedAt: "" } };
   }
   if (!item) throw new Error(`video ${id} not found`);
-  const markers = await fetchHeatmap(id);
-  const windows = markers ? pickHotWindows(markers) : [];
+  const heat = await fetchHeatmapData(id);
+  const markers = heat?.markers ?? null;
+  const windows = heat ? pickHotWindows(heat.markers, heat.decorations) : [];
   const chapters = parseChapters(item.snippet?.description);
   console.log(`heatmap markers: ${markers?.length ?? 0}, windows: ${windows.map((w) => `${formatMmss(w.start)} (${w.peak.toFixed(2)})`).join(", ") || "none"}, chapters: ${chapters.length}`);
   hot = windows.length

@@ -15,6 +15,12 @@
 //   ?dry=1          → compute, print, write nothing
 //   ?max=20         → limit channels this run
 //   ?channelId=UC.. → one channel (skips the queue filter; still respects dry)
+//   ?recompute=heatmap → queued channels that already carry a heatmap result,
+//                     re-enriched in place (used once on 2026-09-12 after the
+//                     peak-second fix; the ~164 rows stamped before it held a
+//                     second 12-38 s early). Sent rows are never touched: the
+//                     follow-up rebuilds "re: minuto X" from these columns and
+//                     a different second would split the thread.
 //
 // Env: HOT_MOMENTS_PER_TICK (default 400).
 
@@ -55,6 +61,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dry") === "1";
   const onlyChannel = url.searchParams.get("channelId") || null;
+  const recompute = url.searchParams.get("recompute") === "heatmap";
   const perTick = Number(url.searchParams.get("max")) || Number(process.env.HOT_MOMENTS_PER_TICK) || 400;
   const log = (msg: string) => console.log(`[hot-moments ${new Date().toISOString()}]`, msg);
 
@@ -69,7 +76,7 @@ export async function GET(req: NextRequest) {
           .from(channels)
           .where(
             sql`${channels.status} = 'queued'
-              AND ${channels.hotCheckedAt} IS NULL
+              AND ${recompute ? sql`${channels.hotSource} = 'heatmap'` : sql`${channels.hotCheckedAt} IS NULL`}
               AND ${channels.id} LIKE 'UC%'
               AND ${channels.primaryEmail} IS NOT NULL
               AND (${channels.discoveredVia} IS NULL OR ${channels.discoveredVia} NOT LIKE 'sonar:%')`,
@@ -77,7 +84,7 @@ export async function GET(req: NextRequest) {
           .orderBy(sql`${channels.score} DESC NULLS LAST, ${channels.subscribers} DESC NULLS LAST`)
           .limit(perTick);
 
-    log(`starting dry=${dryRun} candidates=${candidates.length} perTick=${perTick}`);
+    log(`starting dry=${dryRun} recompute=${recompute} candidates=${candidates.length} perTick=${perTick}`);
 
     const yt = new YouTubeClient();
     const counts = { processed: 0, heatmap: 0, top_comment: 0, cadence: 0, none: 0, errors: 0, frames_requested: 0 };

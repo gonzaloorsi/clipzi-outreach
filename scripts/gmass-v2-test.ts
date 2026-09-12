@@ -10,7 +10,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { Resend } from "resend";
-import { fetchHeatmap, pickHotWindows, formatMmss } from "../lib/heatmap";
+import { fetchHeatmapData, pickHotWindows, formatMmss } from "../lib/heatmap";
 import { htmlToPlainText } from "../lib/email";
 import { build as hotEs } from "../lib/templates/youtube-hot-es";
 import { build as hotEn } from "../lib/templates/youtube-hot-en";
@@ -30,8 +30,9 @@ const lang = (flag("lang") ?? "es") as "es" | "en" | "pt";
 const videoId = flag("video") ?? "yjwazQE1uvI";
 const fromName = process.env.SENDER_NAME ?? "Gonzalo Orsi";
 
-const markers = await fetchHeatmap(videoId);
-const windows = markers ? pickHotWindows(markers) : [];
+const heat = await fetchHeatmapData(videoId);
+const markers = heat?.markers ?? null;
+const windows = heat ? pickHotWindows(heat.markers, heat.decorations) : [];
 if (!windows.length) throw new Error("no heatmap for the test video");
 const o = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`).then((r) => r.json());
 

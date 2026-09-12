@@ -42,9 +42,26 @@ export interface HeatmapMarker {
 }
 
 export interface HotWindow {
-  start: number;
+  start: number; // the second to quote: YouTube's "Most replayed" label, else the peak marker
   end: number;
   peak: number;
+}
+
+/**
+ * Where YouTube itself pins the "Most replayed" label(s) on the player
+ * (`markersDecoration.timedMarkerDecorations` in the same InnerTube answer).
+ * `timeS` is the labelled second; `startS`/`endS` the highlighted range.
+ */
+export interface HeatmapDecoration {
+  timeS: number;
+  startS: number;
+  endS: number;
+  label: string | null;
+}
+
+export interface HeatmapData {
+  markers: HeatmapMarker[];
+  decorations: HeatmapDecoration[];
 }
 
 export interface Chapter {
@@ -82,14 +99,28 @@ interface InnerTubeMarker {
   intensityScoreNormalized?: number;
 }
 
+interface InnerTubeDecoration {
+  visibleTimeRangeStartMillis?: string | number;
+  visibleTimeRangeEndMillis?: string | number;
+  decorationTimeMillis?: string | number;
+  label?: { runs?: Array<{ text?: string }> };
+}
+
 /**
- * Fetch the replay heatmap for a video. Returns null when the video has no
- * heatmap (too few views) or InnerTube did not answer. Never throws.
+ * Fetch the replay heatmap for a video: the 100 intensity markers AND the
+ * "Most replayed" decorations YouTube draws on top of them. Returns null when
+ * the video has no heatmap (too few views) or InnerTube did not answer. Never
+ * throws.
+ *
+ * The decorations matter: until 2026-09-12 we quoted the start of the hottest
+ * marker window, which sits 12-38 s BEFORE the second YouTube labels (the
+ * curve climbs for a marker or two before the peak). 5 of 12 real sends named
+ * a second the creator could not find on their own player.
  */
-export async function fetchHeatmap(
+export async function fetchHeatmapData(
   videoId: string,
   opts: { timeoutMs?: number; retries?: number } = {},
-): Promise<HeatmapMarker[] | null> {
+): Promise<HeatmapData | null> {
   const timeoutMs = opts.timeoutMs ?? 10_000;
   const retries = opts.retries ?? 1;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -121,7 +152,11 @@ export async function fetchHeatmap(
             mutations?: Array<{
               payload?: {
                 macroMarkersListEntity?: {
-                  markersList?: { markerType?: string; markers?: InnerTubeMarker[] };
+                  markersList?: {
+                    markerType?: string;
+                    markers?: InnerTubeMarker[];
+                    markersDecoration?: { timedMarkerDecorations?: InnerTubeDecoration[] };
+                  };
                 };
               };
             }>;
@@ -139,7 +174,16 @@ export async function fetchHeatmap(
             intensity: Number(k.intensityScoreNormalized ?? 0),
           }))
           .filter((k) => Number.isFinite(k.startS) && Number.isFinite(k.intensity));
-        return markers.length > 0 ? markers : null;
+        if (markers.length === 0) return null;
+        const decorations = (list.markersDecoration?.timedMarkerDecorations ?? [])
+          .map((d) => ({
+            timeS: Number(d.decorationTimeMillis ?? NaN) / 1000,
+            startS: Number(d.visibleTimeRangeStartMillis ?? NaN) / 1000,
+            endS: Number(d.visibleTimeRangeEndMillis ?? NaN) / 1000,
+            label: d.label?.runs?.[0]?.text ?? null,
+          }))
+          .filter((d) => Number.isFinite(d.timeS) && Number.isFinite(d.startS) && Number.isFinite(d.endS));
+        return { markers, decorations };
       }
       return null;
     } catch {
@@ -151,16 +195,34 @@ export async function fetchHeatmap(
   return null;
 }
 
+/** Markers only. Kept for callers that only draw the curve. */
+export async function fetchHeatmap(
+  videoId: string,
+  opts: { timeoutMs?: number; retries?: number } = {},
+): Promise<HeatmapMarker[] | null> {
+  const data = await fetchHeatmapData(videoId, opts);
+  return data?.markers ?? null;
+}
+
 /**
- * Merge the top-intensity markers into up to `maxWindows` contiguous windows,
- * strongest first. Returns [] for flat heatmaps (no real peak: when more than
- * `flatShare` of the markers sit above 0.5 the audience is not rewinding
- * anywhere in particular, and naming a second would be a lie).
+ * Up to `maxWindows` moments worth quoting, strongest first. Returns [] for
+ * flat heatmaps (no real peak: when more than `flatShare` of the markers sit
+ * above 0.5 the audience is not rewinding anywhere in particular, and naming a
+ * second would be a lie).
+ *
+ * `start` is the second the email quotes and the frame is rendered at. With
+ * YouTube's own decorations it is exactly where the player shows "Most
+ * replayed", so the creator finds it on their own video. Without decorations
+ * (older responses, edge cases) the top-intensity markers are merged into
+ * contiguous windows and `start` is the PEAK marker of each window, never its
+ * first marker: the curve climbs before the peak, and quoting the window start
+ * pointed 12-38 s early on 5 of 12 real sends (2026-09-12 audit).
  */
 const INTRO_SKIP_S = 15;
 
 export function pickHotWindows(
   markers: HeatmapMarker[],
+  decorations: HeatmapDecoration[] = [],
   opts: { topPct?: number; maxWindows?: number; flatShare?: number } = {},
 ): HotWindow[] {
   const topPct = opts.topPct ?? 0.1;
@@ -170,10 +232,24 @@ export function pickHotWindows(
   const above = markers.filter((m) => m.intensity >= 0.5).length;
   if (above / markers.length > flatShare) return [];
 
+  const finish = (windows: HotWindow[]) => {
+    windows.sort((a, b) => b.peak - a.peak);
+    // The second window only counts when it is a real second peak, not noise.
+    return windows.filter((w, i) => i === 0 || w.peak >= 0.5).slice(0, maxWindows);
+  };
+
+  // The first seconds always spike (everyone watches the start); that is not
+  // a moment worth quoting, so anything inside the intro is dropped. A label
+  // whose highlighted range begins in the intro IS the opening spike (YouTube
+  // pins "Most replayed" at 0:15 on US68mey7ebM), even when the label itself
+  // sits past the cutoff.
+  const labelled = decorations
+    .filter((d) => d.timeS >= INTRO_SKIP_S && d.startS >= INTRO_SKIP_S)
+    .map((d) => ({ start: d.timeS, end: d.endS, peak: peakWithin(markers, d.startS, d.endS) }));
+  if (labelled.length > 0) return finish(labelled);
+
   const sorted = [...markers].sort((a, b) => b.intensity - a.intensity);
   const threshold = sorted[Math.max(0, Math.floor(markers.length * topPct) - 1)].intensity;
-  // The first seconds always spike (everyone watches the start); that is not
-  // a moment worth quoting, so windows opening inside the intro are dropped.
   const hot = markers
     .filter((m) => m.intensity >= threshold && m.startS >= INTRO_SKIP_S)
     .sort((a, b) => a.startS - b.startS);
@@ -183,14 +259,24 @@ export function pickHotWindows(
     const last = windows[windows.length - 1];
     if (last && m.startS <= last.end + 1) {
       last.end = m.startS + m.durationS;
-      last.peak = Math.max(last.peak, m.intensity);
+      if (m.intensity > last.peak) {
+        last.peak = m.intensity;
+        last.start = m.startS;
+      }
     } else {
       windows.push({ start: m.startS, end: m.startS + m.durationS, peak: m.intensity });
     }
   }
-  windows.sort((a, b) => b.peak - a.peak);
-  // The second window only counts when it is a real second peak, not noise.
-  return windows.filter((w, i) => i === 0 || w.peak >= 0.5).slice(0, maxWindows);
+  return finish(windows);
+}
+
+/** Strongest marker inside a decoration's highlighted range (ranks the labels). */
+function peakWithin(markers: HeatmapMarker[], startS: number, endS: number): number {
+  let peak = 0;
+  for (const m of markers) {
+    if (m.startS + m.durationS > startS && m.startS < endS) peak = Math.max(peak, m.intensity);
+  }
+  return peak;
 }
 
 // ─── Chapters (labels for a peak) ───────────────────────────────────────────
@@ -368,9 +454,10 @@ export async function computeHotMoment(yt: YouTubeClient, channelId: string): Pr
   const video = pickTargetVideo(uploads);
   if (!video) return null;
 
-  const markers = await fetchHeatmap(video.videoId);
-  if (markers) {
-    const windows = pickHotWindows(markers);
+  const heat = await fetchHeatmapData(video.videoId);
+  if (heat) {
+    const { markers } = heat;
+    const windows = pickHotWindows(markers, heat.decorations);
     if (windows.length > 0) {
       const chapters = parseChapters(video.description);
       return {
